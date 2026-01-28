@@ -13,6 +13,10 @@
 #include <print>
 #include <glad/gl.h>
 #include <glfw/glfw3.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
 
 namespace
 {
@@ -23,11 +27,99 @@ bool g_IsRunning = true;
 std::vector<float> g_VertexData;
 std::vector<float> g_IndexData;
 
-float g_Vertices[]
+// 24 vertices: 6 faces * 4 verts/face
+// layout: x y z r g b
+constexpr float g_CubeVertices[] = {
+    // +Z (front) - Red
+    -0.5f,-0.5f, 0.5f,  1.f,0.f,0.f,
+     0.5f,-0.5f, 0.5f,  1.f,0.f,0.f,
+     0.5f, 0.5f, 0.5f,  1.f,0.f,0.f,
+    -0.5f, 0.5f, 0.5f,  1.f,0.f,0.f,
+
+    // -Z (back) - Green
+     0.5f,-0.5f,-0.5f,  0.f,1.f,0.f,
+    -0.5f,-0.5f,-0.5f,  0.f,1.f,0.f,
+    -0.5f, 0.5f,-0.5f,  0.f,1.f,0.f,
+     0.5f, 0.5f,-0.5f,  0.f,1.f,0.f,
+
+    // -X (left) - Blue
+    -0.5f,-0.5f,-0.5f,  0.f,0.f,1.f,
+    -0.5f,-0.5f, 0.5f,  0.f,0.f,1.f,
+    -0.5f, 0.5f, 0.5f,  0.f,0.f,1.f,
+    -0.5f, 0.5f,-0.5f,  0.f,0.f,1.f,
+
+    // +X (right) - Yellow
+     0.5f,-0.5f, 0.5f,  1.f,1.f,0.f,
+     0.5f,-0.5f,-0.5f,  1.f,1.f,0.f,
+     0.5f, 0.5f,-0.5f,  1.f,1.f,0.f,
+     0.5f, 0.5f, 0.5f,  1.f,1.f,0.f,
+
+    // +Y (top) - Magenta
+    -0.5f, 0.5f, 0.5f,  1.f,0.f,1.f,
+     0.5f, 0.5f, 0.5f,  1.f,0.f,1.f,
+     0.5f, 0.5f,-0.5f,  1.f,0.f,1.f,
+    -0.5f, 0.5f,-0.5f,  1.f,0.f,1.f,
+
+    // -Y (bottom) - Cyan
+    -0.5f,-0.5f,-0.5f,  0.f,1.f,1.f,
+     0.5f,-0.5f,-0.5f,  0.f,1.f,1.f,
+     0.5f,-0.5f, 0.5f,  0.f,1.f,1.f,
+    -0.5f,-0.5f, 0.5f,  0.f,1.f,1.f,
+};
+
+constexpr unsigned int g_CubeIndices[] = {
+    0,1,2,  0,2,3,        // front
+    4,5,6,  4,6,7,        // back
+    8,9,10, 8,10,11,      // left
+    12,13,14, 12,14,15,   // right
+    16,17,18, 16,18,19,   // top
+    20,21,22, 20,22,23    // bottom
+};
+
+constexpr std::array<std::array<float, 12>, 6> g_BlockFaces
 {
-    -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-     0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-     0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+    std::array<float, 12>
+    {
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
+    {
+        1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 1.0f,
+    },
+    std::array<float, 12>
+    {
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+    },
+    std::array<float, 12>
+    {
+        0.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
+    {
+        1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
+    {
+        0.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 1.0f,
+    },
 };
 
 std::optional<std::string> LoadFile(std::string_view filepath)
@@ -135,6 +227,8 @@ void Nitrocraft::Run()
         return;
     }
 
+    glfwFocusWindow(g_Window);
+
     glfwMakeContextCurrent(g_Window);
 
     if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress))
@@ -159,27 +253,45 @@ void Nitrocraft::Run()
         }
     );
 
-    //// Create vertex buffer
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_Vertices), g_Vertices, GL_STATIC_DRAW);
-
     //// Create vertex array object
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
+
+    //// Create vertex buffer
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(g_CubeVertices), g_CubeVertices, GL_STATIC_DRAW);
+
+    //// Create index buffer
+    GLuint ibo;
+    glGenBuffers(1, &ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_CubeIndices), g_CubeIndices, GL_STATIC_DRAW);
+
+    //// Specify vertex attrib
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, reinterpret_cast<const void*>(0));
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, reinterpret_cast<const void*>(sizeof(float) * 3));
     glEnableVertexAttribArray(1);
 
+    GLenum error =glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::println("ERROR: OpenGL");
+    }
+
     //// Load Program
-    auto program_opt = LoadShaderProgram("Triangle");
+    auto program_opt = LoadShaderProgram("Cube");
     if (program_opt.has_value() == false) return;
     GLuint program = program_opt.value();
 
+
+    //// Configs
     glUseProgram(program);
+
+    glEnable(GL_DEPTH_TEST);
 
     // Loop
     while (g_IsRunning)
@@ -194,9 +306,24 @@ void Nitrocraft::Run()
             g_IsRunning = false;
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
+        //// Create transform matrix
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -2.0f));
+        model = glm::rotate(model, static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1720.0f / 960.0f, 0.1f, 100.0f);
+        glm::mat4 model_view_projection = projection * model;
 
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        GLint mvp_location = glGetUniformLocation(program, "u_ModelViewProjection");
+        if (mvp_location == -1)
+        {
+            std::println("Uniform location for u_ModelViewProjection not found");
+        }
+        
+        glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(model_view_projection));
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        glDrawElements(GL_TRIANGLES, sizeof(g_CubeIndices) / sizeof(g_CubeIndices[0]), GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(g_Window);
 

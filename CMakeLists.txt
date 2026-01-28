@@ -19,12 +19,16 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 # Libraries
 add_subdirectory(vendor/glad)
 add_subdirectory(vendor/glfw)
+add_subdirectory(vendor/glm)
+add_subdirectory(vendor/stb)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_INCLUDE_NONE)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     glad
     glfw
+    glm
+    stb
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
