@@ -1,8 +1,8 @@
-#include <print>
+#include "Nitrocraft.hpp"
 
 int main()
 {
-    std::println("Nitrocraft");
+    Nitrocraft::Run();
 
     return 0;
 }
