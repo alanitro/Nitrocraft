@@ -7,7 +7,7 @@ add_executable(${PROJECT_NAME}
     source/Main.cpp
     source/Nitrocraft.hpp
     source/Nitrocraft.cpp
-)
+ "source/ResourceManager.cpp" "source/Camera.cpp")
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 

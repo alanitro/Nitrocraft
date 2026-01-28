@@ -17,6 +17,9 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
+#include "Timer.hpp"
+#include "ResourceManager.hpp"
+#include "Camera.hpp"
 
 namespace
 {
@@ -76,6 +79,20 @@ constexpr unsigned int g_CubeIndices[] = {
     20,21,22, 20,22,23    // bottom
 };
 
+constexpr glm::vec3 g_CubePositions[] =
+{
+    glm::vec3(0.0f,  0.0f,  0.0f),
+    glm::vec3(2.0f,  5.0f, -15.0f),
+    glm::vec3(-1.5f, -2.2f, -2.5f),
+    glm::vec3(-3.8f, -2.0f, -12.3f),
+    glm::vec3(2.4f, -0.4f, -3.5f),
+    glm::vec3(-1.7f,  3.0f, -7.5f),
+    glm::vec3(1.3f, -2.0f, -2.5f),
+    glm::vec3(1.5f,  2.0f, -2.5f),
+    glm::vec3(1.5f,  0.2f, -1.5f),
+    glm::vec3(-1.3f,  1.0f, -1.5f)
+};
+
 constexpr std::array<std::array<float, 12>, 6> g_BlockFaces
 {
     std::array<float, 12>
@@ -121,84 +138,6 @@ constexpr std::array<std::array<float, 12>, 6> g_BlockFaces
         0.0f, 1.0f, 1.0f,
     },
 };
-
-std::optional<std::string> LoadFile(std::string_view filepath)
-{
-    std::ifstream file;
-    file.open(std::string(filepath));
-
-    if (file.is_open() == false)
-    {
-        std::println("Error: File {} does not exist", filepath);
-        return std::nullopt;
-    }
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-
-    return buffer.str();
-}
-
-std::optional<GLuint> LoadShaderProgram(std::string_view shader_name)
-{
-    std::string vertex_shader_path = std::format("{}{}{}", "./resource/shader/", shader_name, ".vert.glsl");
-    std::string fragment_shader_path = std::format("{}{}{}", "./resource/shader/", shader_name, ".frag.glsl");
-    
-    // Create vertex shader
-    auto vertex_shader_source_opt = LoadFile(vertex_shader_path);
-    if (vertex_shader_source_opt.has_value() == false) return std::nullopt;
-    const char* vertex_shader_source = vertex_shader_source_opt.value().c_str();
-
-    GLint compile_status;
-    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vertex_shader_source, nullptr);
-    glCompileShader(vertex_shader);
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &compile_status);
-    if (compile_status == GL_FALSE)
-    {
-        char info_log[512];
-        glGetShaderInfoLog(vertex_shader, sizeof(info_log), nullptr, info_log);
-        std::println(std::cerr, "ERROR:SHADER:VERTEX: {}", info_log);
-        return std::nullopt;
-    }
-
-    // Create fragment shader
-    auto fragment_shader_source_opt = LoadFile(fragment_shader_path);
-    if (fragment_shader_source_opt.has_value() == false) return std::nullopt;
-    const char* fragment_shader_source = fragment_shader_source_opt.value().c_str();
-
-    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &fragment_shader_source, nullptr);
-    glCompileShader(fragment_shader);
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &compile_status);
-    if (compile_status == GL_FALSE)
-    {
-        char info_log[512];
-        glGetShaderInfoLog(fragment_shader, sizeof(info_log), nullptr, info_log);
-        std::println(std::cerr, "ERROR:SHADER:FRAGMENT: {}", info_log);
-        return std::nullopt;
-    }
-
-    // Create shader program
-    GLint link_status;
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
-    glGetProgramiv(program, GL_LINK_STATUS, &link_status);
-    if (link_status == GL_FALSE)
-    {
-        char info_log[512];
-        glGetProgramInfoLog(fragment_shader, sizeof(info_log), nullptr, info_log);
-        std::println(std::cerr, "ERROR: SHADER PROGRAM: {}", info_log);
-        return std::nullopt;
-    }
-
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    return program;
-}
 } // namespace unnamed
 
 void Nitrocraft::Run()
@@ -217,6 +156,8 @@ void Nitrocraft::Run()
         return;
     }
 
+
+    //// Create window
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -229,6 +170,7 @@ void Nitrocraft::Run()
 
     glfwFocusWindow(g_Window);
 
+    //// Load OpenGL functions
     glfwMakeContextCurrent(g_Window);
 
     if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress))
@@ -238,12 +180,11 @@ void Nitrocraft::Run()
         return;
     }
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
     std::println("GL Version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
     std::println("GL Vendor: {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
     std::println("GL Renderer: {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
 
+    //// Register callbacks
     glfwSetFramebufferSizeCallback(
         g_Window,
         [](GLFWwindow* window, int width, int height)
@@ -252,6 +193,26 @@ void Nitrocraft::Run()
             glViewport(0, 0, width, height);
         }
     );
+
+    glfwSetKeyCallback(
+        g_Window,
+        [](GLFWwindow* window, int key, int scancode, int action, int mods)
+        {
+            (void)window;
+            (void)scancode;
+            (void)mods;
+
+            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+            {
+                static bool flip = false;
+                glfwSetInputMode(g_Window, GLFW_CURSOR, flip ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+                flip = flip ? false : true;
+            }
+        }
+    );
+
+    glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(g_Window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     //// Create vertex array object
     GLuint vao;
@@ -276,54 +237,99 @@ void Nitrocraft::Run()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, reinterpret_cast<const void*>(sizeof(float) * 3));
     glEnableVertexAttribArray(1);
 
-    GLenum error =glGetError();
+    GLenum error = glGetError();
     if (error != GL_NO_ERROR)
     {
         std::println("ERROR: OpenGL");
     }
 
-    //// Load Program
-    auto program_opt = LoadShaderProgram("Cube");
+    //// Load shader program
+    auto program_opt = ResourceManager::LoadShaderProgram("Cube");
     if (program_opt.has_value() == false) return;
     GLuint program = program_opt.value();
 
-
-    //// Configs
+    //// Graphics configs
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glUseProgram(program);
-
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+
+    //// Camera
+    Camera camera;
+    camera.SetAspectRatio(1720.0f / 960.0f);
+    camera.SetFar(1000.0f);
+
+    //// Timer
+    Timer timer;
+
+    //// Player info
+    float player_speed = 0.0005f;
+
+    bool first_loop = true;
 
     // Loop
     while (g_IsRunning)
     {
+        //// Update
         if (glfwWindowShouldClose(g_Window))
         {
             g_IsRunning = false;
         }
 
-        if (glfwGetKey(g_Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        //// Get delta position
+        glm::vec3 delta_position{};
+        float speed = player_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)    speed *= 5.0f;
+        float delta_speed = speed * static_cast<float>(timer.Elapsed());
+        if (glfwGetKey(g_Window, GLFW_KEY_A) == GLFW_PRESS)             delta_position += camera.GetLeft() * delta_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_D) == GLFW_PRESS)             delta_position += camera.GetRight() * delta_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_SPACE) == GLFW_PRESS)         delta_position += camera.GetUp() * delta_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  delta_position += camera.GetDown() * delta_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_S) == GLFW_PRESS)             delta_position += camera.GetBack() * delta_speed;
+        if (glfwGetKey(g_Window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
+
+
+        //// Get delta rotatin
+        static double prev_xpos, prev_ypos;
+        double xpos, ypos;
+        glfwGetCursorPos(g_Window, &xpos, &ypos);
+        glm::vec2 delta_rotation;
+        if (first_loop)
         {
-            g_IsRunning = false;
+            delta_rotation = glm::vec2(0);
+            first_loop = false;
         }
+        else
+        {
+            float xoffset = static_cast<float>((xpos - prev_xpos) / 1000.0);
+            float yoffset = static_cast<float>((ypos - prev_ypos) / 1000.0);
+            delta_rotation = glm::vec2(xoffset, -yoffset);
+        }
+        prev_xpos = xpos;
+        prev_ypos = ypos;
+
+        //// Recalculate camera
+        camera.Calculate(delta_position, delta_rotation);
+
+        //// Render
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //// Create transform matrix
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -2.0f));
-        model = glm::rotate(model, static_cast<float>(glfwGetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1720.0f / 960.0f, 0.1f, 100.0f);
-        glm::mat4 model_view_projection = projection * model;
-
         GLint mvp_location = glGetUniformLocation(program, "u_ModelViewProjection");
         if (mvp_location == -1)
         {
             std::println("Uniform location for u_ModelViewProjection not found");
         }
-        
-        glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(model_view_projection));
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        glDrawElements(GL_TRIANGLES, sizeof(g_CubeIndices) / sizeof(g_CubeIndices[0]), GL_UNSIGNED_INT, 0);
+        for (auto position : g_CubePositions)
+        {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, position);
+            model = glm::rotate(model, static_cast<float>(glfwGetTime()), position);
+            glm::mat4 model_view_projection = camera.GetViewProjection() * model;
+            glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(model_view_projection));
+            glDrawElements(GL_TRIANGLES, sizeof(g_CubeIndices) / sizeof(g_CubeIndices[0]), GL_UNSIGNED_INT, 0);
+        }
 
         glfwSwapBuffers(g_Window);
 
