@@ -27,48 +27,52 @@ GLFWwindow* g_Window = nullptr;
 
 bool g_IsRunning = true;
 
-std::vector<float> g_VertexData;
-std::vector<float> g_IndexData;
-
-// 24 vertices: 6 faces * 4 verts/face
-// layout: x y z r g b
+constexpr float tileSize = 1.0f / 16.0f;
+constexpr int tx = 1;
+constexpr int ty = 0;
+// bottom-left origin UVs:
+constexpr float s0 = tx * tileSize;          // 0/16
+constexpr float t0 = ty * tileSize;          // 1/16
+constexpr float s1 = (tx + 1) * tileSize;    // 1/16
+constexpr float t1 = (ty + 1) * tileSize;    // 2/16
 constexpr float g_CubeVertices[] = {
-    // +Z (front) - Red
-    -0.5f,-0.5f, 0.5f,  1.f,0.f,0.f,
-     0.5f,-0.5f, 0.5f,  1.f,0.f,0.f,
-     0.5f, 0.5f, 0.5f,  1.f,0.f,0.f,
-    -0.5f, 0.5f, 0.5f,  1.f,0.f,0.f,
+    // +Z (front)
+    -0.5f,-0.5f, 0.5f,  s0,t0,
+     0.5f,-0.5f, 0.5f,  s1,t0,
+     0.5f, 0.5f, 0.5f,  s1,t1,
+    -0.5f, 0.5f, 0.5f,  s0,t1,
 
-    // -Z (back) - Green
-     0.5f,-0.5f,-0.5f,  0.f,1.f,0.f,
-    -0.5f,-0.5f,-0.5f,  0.f,1.f,0.f,
-    -0.5f, 0.5f,-0.5f,  0.f,1.f,0.f,
-     0.5f, 0.5f,-0.5f,  0.f,1.f,0.f,
+    // -Z (back)
+     0.5f,-0.5f,-0.5f,  s0,t0,
+    -0.5f,-0.5f,-0.5f,  s1,t0,
+    -0.5f, 0.5f,-0.5f,  s1,t1,
+     0.5f, 0.5f,-0.5f,  s0,t1,
 
-    // -X (left) - Blue
-    -0.5f,-0.5f,-0.5f,  0.f,0.f,1.f,
-    -0.5f,-0.5f, 0.5f,  0.f,0.f,1.f,
-    -0.5f, 0.5f, 0.5f,  0.f,0.f,1.f,
-    -0.5f, 0.5f,-0.5f,  0.f,0.f,1.f,
+     // -X (left)
+     -0.5f,-0.5f,-0.5f,  s0,t0,
+     -0.5f,-0.5f, 0.5f,  s1,t0,
+     -0.5f, 0.5f, 0.5f,  s1,t1,
+     -0.5f, 0.5f,-0.5f,  s0,t1,
 
-    // +X (right) - Yellow
-     0.5f,-0.5f, 0.5f,  1.f,1.f,0.f,
-     0.5f,-0.5f,-0.5f,  1.f,1.f,0.f,
-     0.5f, 0.5f,-0.5f,  1.f,1.f,0.f,
-     0.5f, 0.5f, 0.5f,  1.f,1.f,0.f,
+     // +X (right)
+      0.5f,-0.5f, 0.5f,  s0,t0,
+      0.5f,-0.5f,-0.5f,  s1,t0,
+      0.5f, 0.5f,-0.5f,  s1,t1,
+      0.5f, 0.5f, 0.5f,  s0,t1,
 
-    // +Y (top) - Magenta
-    -0.5f, 0.5f, 0.5f,  1.f,0.f,1.f,
-     0.5f, 0.5f, 0.5f,  1.f,0.f,1.f,
-     0.5f, 0.5f,-0.5f,  1.f,0.f,1.f,
-    -0.5f, 0.5f,-0.5f,  1.f,0.f,1.f,
+      // +Y (top)
+      -0.5f, 0.5f, 0.5f,  s0,t0,
+       0.5f, 0.5f, 0.5f,  s1,t0,
+       0.5f, 0.5f,-0.5f,  s1,t1,
+      -0.5f, 0.5f,-0.5f,  s0,t1,
 
-    // -Y (bottom) - Cyan
-    -0.5f,-0.5f,-0.5f,  0.f,1.f,1.f,
-     0.5f,-0.5f,-0.5f,  0.f,1.f,1.f,
-     0.5f,-0.5f, 0.5f,  0.f,1.f,1.f,
-    -0.5f,-0.5f, 0.5f,  0.f,1.f,1.f,
+      // -Y (bottom)
+      -0.5f,-0.5f,-0.5f,  s0,t0,
+       0.5f,-0.5f,-0.5f,  s1,t0,
+       0.5f,-0.5f, 0.5f,  s1,t1,
+      -0.5f,-0.5f, 0.5f,  s0,t1,
 };
+
 
 constexpr unsigned int g_CubeIndices[] = {
     0,1,2,  0,2,3,        // front
@@ -92,52 +96,6 @@ constexpr glm::vec3 g_CubePositions[] =
     glm::vec3(1.5f,  0.2f, -1.5f),
     glm::vec3(-1.3f,  1.0f, -1.5f)
 };
-
-constexpr std::array<std::array<float, 12>, 6> g_BlockFaces
-{
-    std::array<float, 12>
-    {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f,
-        0.0f, 1.0f, 1.0f,
-        0.0f, 1.0f, 0.0f,
-    },
-    std::array<float, 12>
-    {
-        1.0f, 0.0f, 1.0f,
-        1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 1.0f,
-    },
-    std::array<float, 12>
-    {
-        0.0f, 0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f,
-        1.0f, 0.0f, 1.0f,
-        0.0f, 0.0f, 1.0f,
-    },
-    std::array<float, 12>
-    {
-        0.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-    },
-    std::array<float, 12>
-    {
-        1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f,
-    },
-    std::array<float, 12>
-    {
-        0.0f, 0.0f, 1.0f,
-        1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, 1.0f,
-        0.0f, 1.0f, 1.0f,
-    },
-};
 } // namespace unnamed
 
 void Nitrocraft::Run()
@@ -155,7 +113,6 @@ void Nitrocraft::Run()
     {
         return;
     }
-
 
     //// Create window
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -232,9 +189,9 @@ void Nitrocraft::Run()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(g_CubeIndices), g_CubeIndices, GL_STATIC_DRAW);
 
     //// Specify vertex attrib
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, reinterpret_cast<const void*>(0));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, reinterpret_cast<const void*>(0));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, reinterpret_cast<const void*>(sizeof(float) * 3));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, reinterpret_cast<const void*>(sizeof(float) * 3));
     glEnableVertexAttribArray(1);
 
     GLenum error = glGetError();
@@ -244,15 +201,29 @@ void Nitrocraft::Run()
     }
 
     //// Load shader program
-    auto program_opt = ResourceManager::LoadShaderProgram("Cube");
+    auto program_opt = ResourceManager::LoadShaderProgram("Block");
     if (program_opt.has_value() == false) return;
     GLuint program = program_opt.value();
+
+    //// Load texture program
+    auto texture_opt = ResourceManager::LoadTexture("Blocks");
+    if (texture_opt.has_value() == false) return;
+    GLuint texture = texture_opt.value();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
 
     //// Graphics configs
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glUseProgram(program);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    GLint texture_location = glGetUniformLocation(program, "u_Texture");
+    if (texture_location == -1)
+    {
+        std::println("Uniform location for u_Texture not found");
+    }
+    glUniform1i(texture_location, 0);
 
     //// Camera
     Camera camera;
@@ -263,7 +234,7 @@ void Nitrocraft::Run()
     Timer timer;
 
     //// Player info
-    float player_speed = 0.0005f;
+    float player_speed = 3.0f;
 
     bool first_loop = true;
 
@@ -287,7 +258,7 @@ void Nitrocraft::Run()
         if (glfwGetKey(g_Window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  delta_position += camera.GetDown() * delta_speed;
         if (glfwGetKey(g_Window, GLFW_KEY_S) == GLFW_PRESS)             delta_position += camera.GetBack() * delta_speed;
         if (glfwGetKey(g_Window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
-
+        timer.Reset();
 
         //// Get delta rotatin
         static double prev_xpos, prev_ypos;
@@ -325,7 +296,6 @@ void Nitrocraft::Run()
         {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, position);
-            model = glm::rotate(model, static_cast<float>(glfwGetTime()), position);
             glm::mat4 model_view_projection = camera.GetViewProjection() * model;
             glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(model_view_projection));
             glDrawElements(GL_TRIANGLES, sizeof(g_CubeIndices) / sizeof(g_CubeIndices[0]), GL_UNSIGNED_INT, 0);

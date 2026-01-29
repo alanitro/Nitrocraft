@@ -11,6 +11,11 @@ public:
         : m_Start{ Clock::now() }
     {}
 
+    void Reset()
+    {
+        m_Start = Clock::now();
+    }
+
     double Elapsed() const
     {
         return std::chrono::duration<double>(Clock::now() - m_Start).count();
