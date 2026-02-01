@@ -5,9 +5,31 @@ project(Nitrocraft)
 # Executable
 add_executable(${PROJECT_NAME}
     source/Main.cpp
+
     source/Nitrocraft.hpp
     source/Nitrocraft.cpp
- "source/ResourceManager.cpp" "source/Camera.cpp")
+
+    source/World.hpp
+    source/World.cpp
+    source/World_Definitions.hpp
+    source/World_Block.hpp
+    source/World_Block.cpp
+    source/World_Chunk.hpp
+    source/World_Chunk.cpp
+    source/World_TerrainGenerator.hpp
+    source/World_TerrainGenerator.cpp
+
+    source/Graphics_Camera.hpp
+    source/Graphics_Camera.cpp
+    source/Graphics_WorldRenderer.hpp
+    source/Graphics_WorldRenderer.cpp
+
+    source/Utility_Timer.hpp
+    source/Utility_Array2D.hpp
+    source/Utility_Array3D.hpp
+    source/Utility_File.hpp
+    source/Utility_File.cpp
+)
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 

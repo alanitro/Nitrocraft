@@ -1,0 +1,396 @@
+#include "Graphics_WorldRenderer.hpp"
+
+#include <array>
+#include <print>
+#include <glm/vec2.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "Utility_File.hpp"
+#include "Graphics_Camera.hpp"
+#include "World_Definitions.hpp"
+#include "World_Block.hpp"
+#include "World_Chunk.hpp"
+
+namespace
+{
+    enum class BlockFace
+    {
+        XN, XP,
+        YN, YP,
+        ZN, ZP,
+
+        COUNT = 6,
+    };
+
+    enum class BlockFaceBit : std::uint32_t
+    {
+        XN = (1u << static_cast<std::uint32_t>(BlockFace::XN)),
+        XP = (1u << static_cast<std::uint32_t>(BlockFace::XP)),
+        YN = (1u << static_cast<std::uint32_t>(BlockFace::YN)),
+        YP = (1u << static_cast<std::uint32_t>(BlockFace::YP)),
+        ZN = (1u << static_cast<std::uint32_t>(BlockFace::ZN)),
+        ZP = (1u << static_cast<std::uint32_t>(BlockFace::ZP)),
+
+        COUNT = 6,
+    };
+
+    constexpr std::array<std::array<float, 12>, static_cast<int>(BlockFace::COUNT)> BlockFaces
+    {
+        std::array<float, 12>
+        {
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f,
+        },
+        std::array<float, 12>
+        {
+            1.0f, 0.0f, 1.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 1.0f,
+        },
+        std::array<float, 12>
+        {
+            0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+        },
+        std::array<float, 12>
+        {
+            0.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+        },
+        std::array<float, 12>
+        {
+            1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+        },
+        std::array<float, 12>
+        {
+            0.0f, 0.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,
+        },
+    };
+
+    // Tilemap index
+    consteval glm::vec2 TI(int s, int t)
+    {
+        constexpr float w = 1.0f / 16.0f;
+
+        return glm::vec2
+        (
+            static_cast<float>(s) * w,
+            static_cast<float>(t) * w
+        );
+    }
+
+    constexpr glm::vec2 BlockTilemapOffsets[static_cast<int>(BlockID::COUNT)][static_cast<int>(BlockFace::COUNT)]
+    {
+        { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
+        { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
+        { TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0)  }, // Bedrock
+        { TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0)  }, // Dirt
+        { TI(4,1),  TI(4,1),  TI(4,0),  TI(4,2),  TI(4,1),  TI(4,1)  }, // Grass
+        { TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0)  }, // Sand
+        { TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0)  }, // Snow
+        { TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0)  }, // Brick
+        { TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0)  }, // Glowstone
+        { TI(9,1),  TI(9,1),  TI(9,0),  TI(9,2),  TI(9,1),  TI(9,1)  }, // Oak
+        { TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0) }, // Oak Leaves
+        { TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0) }, // Oak Wood
+    };
+}
+
+void WorldRenderer::Initialize()
+{
+    LoadShaderProgram();
+
+    LoadTexture();
+}
+
+void WorldRenderer::Terminate()
+{
+    for (auto& [chunk_id, chunk_mesh] : m_ChunkMeshes)
+    {
+        chunk_mesh.Destroy();
+    }
+
+    glDeleteProgram(m_ShaderProgram);
+
+    glDeleteTextures(1, &m_Texture);
+}
+
+void WorldRenderer::Render(const Camera& camera)
+{
+    glUseProgram(m_ShaderProgram);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_Texture);
+    glUniform1i(glGetUniformLocation(m_ShaderProgram, "u_Texture"), 0);
+
+    auto& model_view_projection = camera.GetViewProjection();
+
+    glUniformMatrix4fv(glGetUniformLocation(m_ShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
+
+    for (auto chunk_mesh : m_ChunksToRender)
+    {
+        glBindVertexArray(chunk_mesh->VertexArrayID);
+
+        glDrawElements(GL_TRIANGLES, chunk_mesh->IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
+    }
+
+    m_ChunksToRender.clear();
+}
+
+void WorldRenderer::PushChunksToRender(ChunkID chunk_id, const Chunk* chunk)
+{
+    if (const auto& iter = m_ChunkMeshes.find(chunk_id); iter != m_ChunkMeshes.end() && chunk->Modified == false)
+    {
+        m_ChunksToRender.push_back(&iter->second);
+        return;
+    }
+    else if (iter != m_ChunkMeshes.end())
+    {
+        iter->second.Destroy();
+        m_ChunkMeshes.erase(chunk_id);
+    }
+
+    auto [it, inserted] = m_ChunkMeshes.emplace(chunk_id, ChunkMesh{});
+
+    auto& mesh = it->second;
+    mesh.Create();
+
+    glBindVertexArray(mesh.VertexArrayID);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.VertexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.IndexBufferID);
+
+    std::vector<ChunkMeshVertex> vertices;
+    std::vector<std::uint32_t>   indices;
+
+    GenerateMesh(vertices, indices, chunk_id * WorldXYZ(WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE), chunk);
+
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkMeshVertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
+    
+    mesh.IndicesCount = indices.size();
+
+    m_ChunksToRender.push_back(&mesh);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, WorldXYZ chunk_offset, const Chunk* chunk)
+{
+    for (int z = 0; z < WORLD_CHUNK_Z_SIZE; z++)
+    {
+        for (int x = 0; x < WORLD_CHUNK_X_SIZE; x++)
+        {
+            for (int y = 0; y < WORLD_CHUNK_Y_SIZE; y++)
+            {
+                // Block face detection
+                Block block = chunk->GetBlockAt(x, y, z);
+
+                if (block == BlockID::AIR) continue;
+
+                auto neighbour_blocks = chunk->GetNeighbourBlocksAt(ChunkXYZ(x, y, z));
+
+                std::uint32_t blockface_bitmask = 0;
+
+                if (neighbour_blocks[static_cast<int>(BlockFace::XN)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::XN); }
+                if (neighbour_blocks[static_cast<int>(BlockFace::XP)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::XP); }
+                if (neighbour_blocks[static_cast<int>(BlockFace::YN)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::YN); }
+                if (neighbour_blocks[static_cast<int>(BlockFace::YP)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::YP); }
+                if (neighbour_blocks[static_cast<int>(BlockFace::ZN)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::ZN); }
+                if (neighbour_blocks[static_cast<int>(BlockFace::ZP)].IsTransparent()) { blockface_bitmask |= static_cast<std::uint32_t>(BlockFaceBit::ZP); }
+
+                if (blockface_bitmask == 0) continue;
+
+                // Chunk Mesh generation
+                WorldXYZ block_offset = chunk_offset + WorldXYZ(x, y, z);
+
+                for (int face = static_cast<int>(BlockFace::XN); face <= static_cast<int>(BlockFace::ZP); face++)
+                {
+                    if (!(blockface_bitmask & (1u << face))) continue;
+
+                    // Populate vertices 
+                    const std::array<float, 12>& block_face = BlockFaces[face];
+
+                    glm::vec2 tile_map_offset = BlockTilemapOffsets[static_cast<int>(block.ID)][static_cast<int>(face)];
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int vertex_base = i * 3;
+
+                        constexpr float w = 1.0f / 16.0f;
+
+                        vertices.emplace_back(
+                            ChunkMeshVertex(
+                                block_face[vertex_base + 0] + block_offset.x,
+                                block_face[vertex_base + 1] + block_offset.y,
+                                block_face[vertex_base + 2] + block_offset.z,
+                                tile_map_offset.x + ((i == 1 || i == 2) ? w : 0.0f),
+                                tile_map_offset.y + ((i == 2 || i == 3) ? w : 0.0f),
+                                static_cast<std::uint8_t>(face)
+                            )
+                        );
+                    }
+
+                    // Populate indices
+                    std::uint32_t base_index = static_cast<std::uint32_t>(vertices.size() - 4);
+                    indices.push_back(base_index + 0);
+                    indices.push_back(base_index + 1);
+                    indices.push_back(base_index + 2);
+                    indices.push_back(base_index + 0);
+                    indices.push_back(base_index + 2);
+                    indices.push_back(base_index + 3);
+                }
+            }
+        }
+    }
+}
+
+void WorldRenderer::LoadShaderProgram()
+{
+    // Load shader sources
+    auto vertex_shader_path = "./resource/shader/Chunk.vert.glsl";
+    auto fragment_shader_path = "./resource/shader/Chunk.frag.glsl";
+
+    auto vertex_shader_source_opt = File::ReadFile(vertex_shader_path);
+    if (vertex_shader_source_opt.has_value() == false)
+    {
+        std::println("Failed to read {}", vertex_shader_path);
+        return;
+    }
+    const char* vertex_shader_source = vertex_shader_source_opt.value().c_str();
+
+    auto fragment_shader_source_opt = File::ReadFile(fragment_shader_path);
+    if (fragment_shader_source_opt.has_value() == false)
+    {
+        std::println("Failed to read {}", fragment_shader_path);
+        return;
+    }
+    const char* fragment_shader_source = fragment_shader_source_opt.value().c_str();
+
+    // Create vertex shader
+    GLint compile_status;
+    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, &vertex_shader_source, nullptr);
+    glCompileShader(vertex_shader);
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &compile_status);
+    if (compile_status == GL_FALSE)
+    {
+        char info_log[512];
+        glGetShaderInfoLog(vertex_shader, sizeof(info_log), nullptr, info_log);
+        std::println("Error: Vertex Shader: {}", info_log);
+        return;
+    }
+
+    // Create fragment shader
+    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, &fragment_shader_source, nullptr);
+    glCompileShader(fragment_shader);
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &compile_status);
+    if (compile_status == GL_FALSE)
+    {
+        char info_log[512];
+        glGetShaderInfoLog(fragment_shader, sizeof(info_log), nullptr, info_log);
+        std::println("Error: Fragment Shader: {}", info_log);
+        return;
+    }
+
+    // Create shader program
+    GLint link_status;
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertex_shader);
+    glAttachShader(program, fragment_shader);
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &link_status);
+    if (link_status == GL_FALSE)
+    {
+        char info_log[512];
+        glGetProgramInfoLog(program, sizeof(info_log), nullptr, info_log);
+        std::println("Error: Shader Program: {}", info_log);
+        return;
+    }
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    m_ShaderProgram = program;
+}
+
+void WorldRenderer::LoadTexture()
+{
+    auto image_opt = File::ReadImage("./resource/texture/Blocks.png", true);
+
+    if (image_opt.has_value() == false)
+    {
+        std::println("Failed to load ./resource/texture/Blocks.png");
+        return;
+    }
+
+    auto& image = image_opt.value();
+
+    GLint format = (image.ChannelNumbers == 4) ? GL_RGBA : GL_RGB;
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, image.Width, image.Height, 0, format, GL_UNSIGNED_BYTE, image.ImageData.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    m_Texture = texture;
+}
+
+void WorldRenderer::ChunkMesh::Create()
+{
+    glGenVertexArrays(1, &VertexArrayID);
+    glGenBuffers(1, &VertexBufferID);
+    glGenBuffers(1, &IndexBufferID);
+
+    glBindVertexArray(VertexArrayID);
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, X)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, S)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, F)));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    IndicesCount = 0;
+}
+
+void WorldRenderer::ChunkMesh::Destroy()
+{
+    glDeleteVertexArrays(1, &VertexArrayID);
+    glDeleteBuffers(1, &VertexBufferID);
+    glDeleteBuffers(1, &IndexBufferID);
+    IndicesCount = 0;
+}
