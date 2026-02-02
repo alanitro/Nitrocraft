@@ -2,7 +2,7 @@
 
 void World::Initialize()
 {
-    m_TerrainGenerator.Initialize(12345);
+    TerrainGenerator::Initialize(12345);
 
     auto chunk = std::make_unique<Chunk>();
 
@@ -32,7 +32,7 @@ void World::Initialize()
     chunk->NeighbourXNZP = chunk_xnzp;
     chunk->NeighbourXPZP = chunk_xpzp;
 
-    m_TerrainGenerator.GenerateTerrain(chunk.get());
+    TerrainGenerator::GenerateTerrain(WorldXYZ(0,0,0), chunk.get());
 
     m_ChunkMap.emplace(ChunkID(0, 0, 0), std::move(chunk));
 }

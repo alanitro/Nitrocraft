@@ -1,21 +1,12 @@
 #pragma once
 
-#include <random>
+#include "World_Definitions.hpp"
 
 struct Chunk;
 
-class TerrainGenerator
+namespace TerrainGenerator
 {
-public:
-    TerrainGenerator() = default;
-    ~TerrainGenerator() = default;
-    TerrainGenerator(const TerrainGenerator&) = delete;
-    TerrainGenerator& operator=(const TerrainGenerator&) = delete;
+    void Initialize(int world_seed);
 
-    void Initialize(std::uint32_t world_seed);
-
-    void GenerateTerrain(Chunk* chunk);
-
-private:
-    std::mt19937 m_Rng;
-};
+    void GenerateTerrain(WorldXYZ chunk_offset, Chunk* chunk);
+}

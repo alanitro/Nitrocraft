@@ -25,8 +25,8 @@ public:
 
     void Fill(const T& v) { m_Elements.fill(v); }
 
-    constexpr       T& At(size_type x, size_type y)       noexcept { return m_Elements[IndexOf(x, y, z)]; }
-    constexpr const T& At(size_type x, size_type y) const noexcept { return m_Elements[IndexOf(x, y, z)]; }
+    constexpr       T& At(size_type x, size_type y)       noexcept { return m_Elements[IndexOf(x, y)]; }
+    constexpr const T& At(size_type x, size_type y) const noexcept { return m_Elements[IndexOf(x, y)]; }
     constexpr       T& operator[](size_type index)        noexcept { return m_Elements[index]; }
     constexpr const T& operator[](size_type index)  const noexcept { return m_Elements[index]; }
 

@@ -43,6 +43,7 @@ add_subdirectory(vendor/glad)
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/stb)
+add_subdirectory(vendor/FastNoise2)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_INCLUDE_NONE)
 
@@ -51,6 +52,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glm
     stb
+    FastNoise2
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -58,4 +60,3 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             ${CMAKE_CURRENT_SOURCE_DIR}/resource
             $<TARGET_FILE_DIR:${PROJECT_NAME}>/resource
 )
-

@@ -4,3 +4,6 @@
 [submodule "glm"]
 	path = vendor/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "FastNoise2"]
+	path = vendor/FastNoise2
+	url = https://github.com/Auburn/FastNoise2.git

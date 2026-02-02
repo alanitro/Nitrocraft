@@ -24,6 +24,4 @@ public:
 
 private:
     std::unordered_map<ChunkID, std::unique_ptr<Chunk>> m_ChunkMap;
-
-    TerrainGenerator m_TerrainGenerator;
 };

@@ -10,6 +10,12 @@
 
 namespace
 {
+enum State
+{
+    ACTIVE,
+    PAUSE,
+};
+
 GLFWwindow* InitializeGLFWAndOpenGLContext()
 {
     GLFWwindow* window = nullptr;
@@ -95,7 +101,7 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
 {
     static bool first_loop = true;
 
-    float player_speed = 3.0f;
+    float player_speed = 10.0f;
 
     //// Get delta position
     glm::vec3 delta_position{};
@@ -140,12 +146,14 @@ void Nitrocraft::Run()
 
     bool is_running = true;
 
+    State state = State::ACTIVE;
+
     Timer timer;
 
     Camera camera;
     camera.SetAspectRatio(1720.0f / 960.0f);
-    camera.SetFar(1000.0f);
-    camera.Calculate(glm::vec3(0.0f, 64.0f, 0.0f), glm::vec3(0.0f));
+    camera.SetFar(550.0f);
+    camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
 
     World world;
     world.Initialize();
@@ -162,9 +170,36 @@ void Nitrocraft::Run()
     while (is_running)
     {
         //// Update
+        // 
+        /*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        {
+            static double previously_pressed_time = glfwGetTime() - 0.051;
+
+            if (glfwGetTime() > previously_pressed_time + 0.05)
+            {
+                switch (state)
+                {
+                    case State::ACTIVE:
+                        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                        break;
+
+                    case State::PAUSE:
+                        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+                        if (glfwRawMouseMotionSupported()) glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            previously_pressed_time = glfwGetTime();
+        }*/
+
         if (glfwWindowShouldClose(window)) is_running = false;
 
-        RecalculateCamera(camera, window, timer.Elapsed());
+        if (state == State::ACTIVE) RecalculateCamera(camera, window, timer.Elapsed());
 
         timer.Reset();
 

@@ -12,13 +12,13 @@ using ChunkID  = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x chunk to
 
 // World Constants
 constexpr int WORLD_HEIGHT    = 256;
-constexpr int WORLD_SEA_LEVEL = 80;
+constexpr int WORLD_SEA_LEVEL = 64;
 constexpr int WORLD_RENDER_DISTANCE = 6; // Render radius in Chunk unit
 
 // Chunk Constants
-constexpr int WORLD_CHUNK_X_SIZE = 32;
+constexpr int WORLD_CHUNK_X_SIZE = 64;
 constexpr int WORLD_CHUNK_Y_SIZE = WORLD_HEIGHT;
-constexpr int WORLD_CHUNK_Z_SIZE = 32;
+constexpr int WORLD_CHUNK_Z_SIZE = 64;
 constexpr int WORLD_CHUNK_AREA   = WORLD_CHUNK_X_SIZE * WORLD_CHUNK_Z_SIZE;
 constexpr int WORLD_CHUNK_VOLUME = WORLD_CHUNK_X_SIZE * WORLD_CHUNK_Y_SIZE * WORLD_CHUNK_Z_SIZE;
 
