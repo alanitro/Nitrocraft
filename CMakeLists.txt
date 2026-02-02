@@ -45,6 +45,7 @@ add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/stb)
 add_subdirectory(vendor/FastNoise2)
+add_subdirectory(vendor/imgui)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_INCLUDE_NONE)
 
@@ -54,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm
     stb
     FastNoise2
+    imgui
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
