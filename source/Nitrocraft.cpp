@@ -115,7 +115,7 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)             delta_position += camera.GetBack() * delta_speed;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
 
-    //// Get delta rotatin
+    //// Get delta rotation
     static double prev_xpos, prev_ypos;
     double xpos, ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -152,7 +152,7 @@ void Nitrocraft::Run()
 
     Camera camera;
     camera.SetAspectRatio(1720.0f / 960.0f);
-    camera.SetFar(550.0f);
+    camera.SetFar(512.0f);
     camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
 
     World world;
@@ -170,7 +170,7 @@ void Nitrocraft::Run()
     while (is_running)
     {
         //// Update
-        // 
+
         /*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             static double previously_pressed_time = glfwGetTime() - 0.051;
@@ -203,7 +203,9 @@ void Nitrocraft::Run()
 
         timer.Reset();
 
-        world_renderer.PushChunksToRender(ChunkID(0, 0, 0), world.GetChunkAt(ChunkID(0, 0, 0)));
+        world.Update(camera);
+
+        world_renderer.PrepareChunksToRender(world.GetActiveArea());
 
         //// Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

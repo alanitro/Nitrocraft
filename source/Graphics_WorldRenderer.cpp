@@ -132,7 +132,7 @@ void WorldRenderer::Render(const Camera& camera)
     glUseProgram(m_ShaderProgram);
 
     glEnable(GL_DEPTH_TEST);
-    //glDepthFunc(GL_LESS);
+    glDepthFunc(GL_LESS);
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -156,14 +156,33 @@ void WorldRenderer::Render(const Camera& camera)
     m_ChunksToRender.clear();
 }
 
-void WorldRenderer::PushChunksToRender(ChunkID chunk_id, const Chunk* chunk)
+void WorldRenderer::PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& active_area)
 {
-    if (const auto& iter = m_ChunkMeshes.find(chunk_id); iter != m_ChunkMeshes.end() && chunk->Modified == false)
+    constexpr int diff = WORLD_LOADING_RADIUS - WORLD_RENDER_DISTANCE;
+
+    for (int ix = diff; ix < WORLD_LOADING_DIAMETER - diff; ix++)
+    {
+        for (int iz = diff; iz < WORLD_LOADING_DIAMETER - diff; iz++)
+        {
+            PushChunksToRender(active_area.At(ix, iz));
+        }
+    }
+}
+
+void WorldRenderer::PushChunksToRender(const Chunk* chunk)
+{
+    ChunkID chunk_id = chunk->ID;
+    WorldPosition chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
+
+    if (
+        const auto& iter = m_ChunkMeshes.find(chunk_id);
+        iter != m_ChunkMeshes.end()
+    )
     {
         m_ChunksToRender.push_back(&iter->second);
         return;
     }
-    else if (iter != m_ChunkMeshes.end())
+    else
     {
         iter->second.Destroy();
         m_ChunkMeshes.erase(chunk_id);
@@ -181,7 +200,7 @@ void WorldRenderer::PushChunksToRender(ChunkID chunk_id, const Chunk* chunk)
     std::vector<ChunkMeshVertex> vertices;
     std::vector<std::uint32_t>   indices;
 
-    GenerateMesh(vertices, indices, chunk_id * WorldXYZ(WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE), chunk);
+    GenerateMesh(vertices, indices, chunk);
 
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkMeshVertex), vertices.data(), GL_STATIC_DRAW);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
@@ -195,8 +214,10 @@ void WorldRenderer::PushChunksToRender(ChunkID chunk_id, const Chunk* chunk)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, WorldXYZ chunk_offset, const Chunk* chunk)
+void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const Chunk* chunk)
 {
+    WorldPosition chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
+
     for (int z = 0; z < WORLD_CHUNK_Z_SIZE; z++)
     {
         for (int x = 0; x < WORLD_CHUNK_X_SIZE; x++)
@@ -208,7 +229,7 @@ void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::ve
 
                 if (block == BlockID::AIR) continue;
 
-                auto neighbour_blocks = chunk->GetNeighbourBlocksAt(ChunkXYZ(x, y, z));
+                auto neighbour_blocks = chunk->GetNeighbourBlocksAt(ChunkPosition(x, y, z));
 
                 std::uint32_t blockface_bitmask = 0;
 
@@ -222,7 +243,7 @@ void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::ve
                 if (blockface_bitmask == 0) continue;
 
                 // Chunk Mesh generation
-                WorldXYZ block_offset = chunk_offset + WorldXYZ(x, y, z);
+                WorldPosition block_offset = chunk_offset + WorldPosition(x, y, z);
 
                 for (int face = static_cast<int>(BlockFace::XN); face <= static_cast<int>(BlockFace::ZP); face++)
                 {

@@ -8,5 +8,5 @@ namespace TerrainGenerator
 {
     void Initialize(int world_seed);
 
-    void GenerateTerrain(WorldXYZ chunk_offset, Chunk* chunk);
+    void GenerateTerrain(Chunk* chunk);
 }

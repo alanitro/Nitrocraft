@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <glad/gl.h>
 #include "World_Definitions.hpp"
+#include "Utility_Array2D.hpp"
 
 class Camera;
 struct Chunk;
@@ -20,7 +21,7 @@ public:
 
     void Render(const Camera& camera);
 
-    void PushChunksToRender(ChunkID chunk_id, const Chunk* chunk);
+    void PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& active_area);
 
 private:
     struct ChunkMeshVertex
@@ -50,7 +51,8 @@ private:
     std::vector<ChunkMesh*>                 m_ChunksToRender;
     std::unordered_map<ChunkID, ChunkMesh>  m_ChunkMeshes;
 
-    void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, WorldXYZ chunk_offset, const Chunk* chunk);
+    void PushChunksToRender(const Chunk* chunk);
+    void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const Chunk* chunk);
     void LoadShaderProgram();
     void LoadTexture();
 };

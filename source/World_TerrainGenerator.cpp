@@ -27,22 +27,14 @@ void TerrainGenerator::Initialize(int world_seed)
 {
     WorldSeed = world_seed;
 
-    auto simplex_node = FastNoise::New<FastNoise::SuperSimplex>();
+    auto simplex_node = FastNoise::New<FastNoise::CellularValue>();
     simplex_node->SetScale(50.0f);
 
     ContinentalnessNoise = FastNoise::New<FastNoise::FractalFBm>();
-    //ContinentalnessNoise->SetSource(FastNoise::New<FastNoise::SuperSimplex>());
     ContinentalnessNoise->SetSource(simplex_node);
-    /*ContinentalnessNoise->SetOctaveCount(3);
-    ContinentalnessNoise->SetLacunarity(3.6f);
-    ContinentalnessNoise->SetGain(0.4f);*/
 
     CaveNoise = FastNoise::New<FastNoise::FractalFBm>();
-    //CaveNoise->SetSource(FastNoise::New<FastNoise::SuperSimplex>());
     CaveNoise->SetSource(simplex_node);
-    /*CaveNoise->SetOctaveCount(3);
-    CaveNoise->SetLacunarity(3.0f);
-    CaveNoise->SetGain(0.2f);*/
 }
 
 //void TerrainGenerator::GenerateTerrain(WorldXYZ chunk_offset, Chunk* chunk)
@@ -122,8 +114,10 @@ void TerrainGenerator::Initialize(int world_seed)
 //    }
 //}
 
-void TerrainGenerator::GenerateTerrain(WorldXYZ chunk_offset, Chunk* chunk)
+void TerrainGenerator::GenerateTerrain(Chunk* chunk)
 {
+    auto chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
+
     const int& cx = chunk_offset.x;
     const int& cy = chunk_offset.y;
     const int& cz = chunk_offset.z;
@@ -156,11 +150,11 @@ void TerrainGenerator::GenerateTerrain(WorldXYZ chunk_offset, Chunk* chunk)
     {
         for (int ix = 0; ix < WORLD_CHUNK_X_SIZE; ix++)
         {
-            chunk->Blocks.At(ix, 0, iz) = BlockID::BEDROCK;
+            chunk->BlockData.At(ix, 0, iz) = BlockID::BEDROCK;
 
             for (int iy = 1; iy < WORLD_CHUNK_Y_SIZE; iy++)
             {
-                Block& block = chunk->Blocks.At(ix, iy, iz);
+                Block& block = chunk->BlockData.At(ix, iy, iz);
 
                 block = cavern_samples.At(ix,iy,iz) > 0.0f ? BlockID::STONE : BlockID::AIR;
             }

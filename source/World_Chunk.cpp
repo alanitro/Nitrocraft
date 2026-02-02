@@ -2,15 +2,15 @@
 
 Block Chunk::GetBlockAt(int x, int y, int z) const
 {
-    return Blocks.At(x, y, z);
+    return BlockData.At(x, y, z);
 }
 
-Block Chunk::GetBlockAt(ChunkXYZ position) const
+Block Chunk::GetBlockAt(ChunkPosition position) const
 {
-    return Blocks.At(position.x, position.y, position.z);
+    return BlockData.At(position.x, position.y, position.z);
 }
 
-std::array<Block, (int)BlockNeighbour::COUNT> Chunk::GetNeighbourBlocksAt(ChunkXYZ position) const
+std::array<Block, (int)BlockNeighbour::COUNT> Chunk::GetNeighbourBlocksAt(ChunkPosition position) const
 {
     int& x = position.x;
     int& y = position.y;

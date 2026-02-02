@@ -24,6 +24,7 @@ add_executable(${PROJECT_NAME}
     source/Graphics_WorldRenderer.hpp
     source/Graphics_WorldRenderer.cpp
 
+    source/Utility_Time.hpp
     source/Utility_Timer.hpp
     source/Utility_Array2D.hpp
     source/Utility_Array3D.hpp

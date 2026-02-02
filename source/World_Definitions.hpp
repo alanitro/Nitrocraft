@@ -6,8 +6,8 @@
 #include <glm/gtx/hash.hpp>
 
 // Coordinates
-using WorldXYZ = glm::ivec3; // World relative position
-using ChunkXYZ = glm::ivec3; // Chunk relative position
+using WorldPosition = glm::ivec3; // World relative position
+using ChunkPosition = glm::ivec3; // Chunk relative position
 using ChunkID  = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x chunk to center chunk = (1,0,0)
 
 // World Constants
@@ -15,14 +15,19 @@ constexpr int WORLD_HEIGHT    = 256;
 constexpr int WORLD_SEA_LEVEL = 64;
 constexpr int WORLD_RENDER_DISTANCE = 6; // Render radius in Chunk unit
 
+// Loading Constants
+constexpr int WORLD_LOADING_RADIUS = WORLD_RENDER_DISTANCE + 3;
+constexpr int WORLD_LOADING_DIAMETER = WORLD_LOADING_RADIUS * 2 + 1;
+constexpr int WORLD_LOADING_AREA = WORLD_LOADING_DIAMETER * WORLD_LOADING_DIAMETER;
+
 // Chunk Constants
-constexpr int WORLD_CHUNK_X_SIZE = 64;
+constexpr int WORLD_CHUNK_X_SIZE = 16;
 constexpr int WORLD_CHUNK_Y_SIZE = WORLD_HEIGHT;
-constexpr int WORLD_CHUNK_Z_SIZE = 64;
+constexpr int WORLD_CHUNK_Z_SIZE = 16;
 constexpr int WORLD_CHUNK_AREA   = WORLD_CHUNK_X_SIZE * WORLD_CHUNK_Z_SIZE;
 constexpr int WORLD_CHUNK_VOLUME = WORLD_CHUNK_X_SIZE * WORLD_CHUNK_Y_SIZE * WORLD_CHUNK_Z_SIZE;
 
-constexpr ChunkID ToChunkID(WorldXYZ position)
+constexpr ChunkID FromWorldPositionToChunkID(WorldPosition position)
 {
     int& x = position.x;
     int& y = position.y;
@@ -32,25 +37,24 @@ constexpr ChunkID ToChunkID(WorldXYZ position)
     constexpr int sx = WORLD_CHUNK_X_SIZE;
     constexpr int sz = WORLD_CHUNK_Z_SIZE;
 
-    return ChunkID
-    (
+    return ChunkID{
         (((x % sx >= 0) ? x : (x - sx)) / sx),
         0,
         (((z % sz >= 0) ? z : (z - sz)) / sz)
-    );
+    };
 }
 
-constexpr WorldXYZ ToChunkOffset(WorldXYZ position)
+constexpr WorldPosition FromWorldPositionToChunkOffset(WorldPosition position)
 {
-    return ToChunkID(position) * WorldXYZ(WORLD_CHUNK_X_SIZE, 0, WORLD_CHUNK_Z_SIZE);
+    return FromWorldPositionToChunkID(position) * WorldPosition{ WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE };
 }
 
-constexpr ChunkXYZ ToChunkXYZ(WorldXYZ position)
+constexpr ChunkPosition FromWorldPositionToChunkPosition(WorldPosition position)
 {
-    return position - ToChunkOffset(position);
+    return position - FromWorldPositionToChunkOffset(position);
 }
 
-// Loading Constants
-constexpr int WORLD_LOADING_RADIUS   = WORLD_RENDER_DISTANCE + 3;
-constexpr int WORLD_LOADING_DIAMETER = WORLD_LOADING_RADIUS * 2 + 1;
-constexpr int WORLD_LOADING_AREA     = WORLD_LOADING_DIAMETER * WORLD_LOADING_DIAMETER;
+constexpr WorldPosition FromChunkIDToChunkOffset(ChunkID chunk_id)
+{
+    return chunk_id * WorldPosition{ WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE };
+}
