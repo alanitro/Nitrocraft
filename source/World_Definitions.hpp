@@ -8,12 +8,12 @@
 // Coordinates
 using WorldPosition = glm::ivec3; // World relative position
 using ChunkPosition = glm::ivec3; // Chunk relative position
-using ChunkID  = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x chunk to center chunk = (1,0,0)
+using ChunkID = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x chunk to center chunk = (1,0,0)
 
 // World Constants
 constexpr int WORLD_HEIGHT    = 256;
 constexpr int WORLD_SEA_LEVEL = 64;
-constexpr int WORLD_RENDER_DISTANCE = 6; // Render radius in Chunk unit
+constexpr int WORLD_RENDER_DISTANCE = 10; // Render radius in Chunk unit
 
 // Loading Constants
 constexpr int WORLD_LOADING_RADIUS = WORLD_RENDER_DISTANCE + 3;

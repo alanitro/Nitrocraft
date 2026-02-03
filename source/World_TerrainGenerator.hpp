@@ -1,7 +1,5 @@
 #pragma once
 
-#include "World_Definitions.hpp"
-
 struct Chunk;
 
 namespace TerrainGenerator
