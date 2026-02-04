@@ -1,4 +1,4 @@
-#include "World_TerrainGenerator.hpp"
+#include "World_TerrainGeneration.hpp"
 
 #include <algorithm>
 #include <FastNoise/FastNoise.h>
@@ -14,14 +14,14 @@ namespace
     constexpr float CHEESE_CAVERN_SCALE    = 200.0f;
     constexpr float SPAGHETTI_CAVERN_SCALE = 200.0f;
 
-    constexpr std::size_t NOISE_SAMPLE_X_SIZE = WORLD_CHUNK_X_SIZE;
-    constexpr std::size_t NOISE_SAMPLE_Y_SIZE = WORLD_CHUNK_Y_SIZE;
-    constexpr std::size_t NOISE_SAMPLE_Z_SIZE = WORLD_CHUNK_Z_SIZE;
+    constexpr std::size_t SAMPLE_X_SIZE = World_CHUNK_X_SIZE;
+    constexpr std::size_t SAMPLE_Y_SIZE = World_CHUNK_Y_SIZE;
+    constexpr std::size_t SAMPLE_Z_SIZE = World_CHUNK_Z_SIZE;
 
-    int WorldSeed;
+    int GenerationSeed;
 
     // Terrain noise
-    FastNoise::SmartNode<FastNoise::FractalFBm>     ContinentalnessNoise{};
+    FastNoise::SmartNode<FastNoise::FractalFBm>  ContinentalnessNoise{};
 
     // Cavern noise
     FastNoise::SmartNode<FastNoise::FractalFBm>  CheeseCavernNoise{};
@@ -29,12 +29,12 @@ namespace
     FastNoise::SmartNode<FastNoise::FractalFBm>  SpaghettiCavernNoise2{};
 
     // Noise sample storage
-    Array2D<float, NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Z_SIZE>                        ContinentalnessSamples;
-    Array3D<float, NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE>   CheeseCavernSamples;
-    Array3D<float, NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE>   SpaghettiCavernSamples1;
-    Array3D<float, NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE>   SpaghettiCavernSamples2;
+    Array2D<float, SAMPLE_X_SIZE, SAMPLE_Z_SIZE>                ContinentalnessSamples;
+    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> CheeseCavernSamples;
+    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples1;
+    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples2;
 
-    void GenerateSamples(WorldPosition chunk_offset)
+    void GenerateSamples(World_GlobalXYZ chunk_offset)
     {
         float cx = static_cast<float>(chunk_offset.x);
         float cy = static_cast<float>(chunk_offset.y);
@@ -43,40 +43,40 @@ namespace
         ContinentalnessNoise->GenUniformGrid2D(
             ContinentalnessSamples.Data(),
             cx, cz,
-            NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Z_SIZE,
+            SAMPLE_X_SIZE, SAMPLE_Z_SIZE,
             1.0f, 1.0f,
-            WorldSeed
+            GenerationSeed
         );
 
         CheeseCavernNoise->GenUniformGrid3D(
             CheeseCavernSamples.Data(),
             cx, cy, cz,
-            NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE,
+            SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE,
             1.0f, 1.0f, 1.0f,
-            WorldSeed
+            GenerationSeed
         );
 
         SpaghettiCavernNoise1->GenUniformGrid3D(
             SpaghettiCavernSamples1.Data(),
             cx, cy, cz,
-            NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE,
+            SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE,
             1.0f, 1.0f, 1.0f,
-            WorldSeed + 10000
+            GenerationSeed + 10000
         );
 
         SpaghettiCavernNoise2->GenUniformGrid3D(
             SpaghettiCavernSamples2.Data(),
             cx, cy, cz,
-            NOISE_SAMPLE_X_SIZE, NOISE_SAMPLE_Y_SIZE, NOISE_SAMPLE_Z_SIZE,
+            SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE,
             1.0f, 1.0f, 1.0f,
-            WorldSeed + 20000
+            GenerationSeed + 20000
         );
     }
 }
 
-void TerrainGenerator_Initialize(int world_seed)
+void World_TerrainGeneration_Initialize(int generation_seed)
 {
-    WorldSeed = world_seed;
+    GenerationSeed = generation_seed;
 
     {
         auto continentalness_source = FastNoise::New<FastNoise::SuperSimplex>();
@@ -114,7 +114,7 @@ void TerrainGenerator_Initialize(int world_seed)
         domain_axis_scale->SetSource(spaghetti_cavern_source);
         domain_axis_scale->SetScaling<FastNoise::Dim::X>(0.8f);
         domain_axis_scale->SetScaling<FastNoise::Dim::Z>(0.8f);
-        domain_axis_scale->SetScaling<FastNoise::Dim::Y>(1.4f);
+        domain_axis_scale->SetScaling<FastNoise::Dim::Y>(1.2f);
 
         SpaghettiCavernNoise1 = FastNoise::New<FastNoise::FractalFBm>();
         SpaghettiCavernNoise1->SetSource(domain_axis_scale);
@@ -128,31 +128,31 @@ void TerrainGenerator_Initialize(int world_seed)
     }
 }
 
-void TerrainGenerator_GenerateTerrain(Chunk* chunk)
+void World_TerrainGeneration_GenerateChunk(World_Chunk* chunk)
 {
-    auto chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
+    auto chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
     // Populate noise maps
     GenerateSamples(chunk_offset);
 
-    // Generate terrain
-    for (int iz = 0; iz < WORLD_CHUNK_Z_SIZE; iz++)
+    // Populate block data
+    for (int iz = 0; iz < World_CHUNK_Z_SIZE; iz++)
     {
-        for (int ix = 0; ix < WORLD_CHUNK_X_SIZE; ix++)
+        for (int ix = 0; ix < World_CHUNK_X_SIZE; ix++)
         {
-            const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 32 + WORLD_SEA_LEVEL + 32));
+            const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 32 + World_SEA_LEVEL + 32));
 
-            chunk->BlockData.At(ix, 0, iz) = BlockID::BEDROCK;
+            chunk->Blocks.At(ix, 0, iz).ID = World_Block_ID::BEDROCK;
 
-            for (int iy = 1; iy < WORLD_CHUNK_Y_SIZE; iy++)
+            for (int iy = 1; iy < World_CHUNK_Y_SIZE; iy++)
             {
-                Block& block = chunk->BlockData.At(ix, iy, iz);
+                auto& block = chunk->Blocks.At(ix, iy, iz);
 
                 float cheese_sample     = CheeseCavernSamples.At(ix, iy, iz);
                 float spaghetti_sample1 = SpaghettiCavernSamples1.At(ix, iy, iz);
                 float spaghetti_sample2 = SpaghettiCavernSamples2.At(ix, iy, iz);
 
-                constexpr float thickness = 0.08f;
+                constexpr float thickness = 0.085f;
 
                 float density = static_cast<float>(iy) / static_cast<float>(height);
 
@@ -160,22 +160,23 @@ void TerrainGenerator_GenerateTerrain(Chunk* chunk)
                     (spaghetti_sample1 < thickness && spaghetti_sample1 > -thickness) &&
                     (spaghetti_sample2 < thickness && spaghetti_sample2 > -thickness)) || cheese_sample < (-0.65f - density);
 
-                if (iy < height && !hollow)         block = BlockID::STONE;
-                else if (iy == height && !hollow)   block = BlockID::GRASS;
-                else                                block = BlockID::AIR;
+                if (iy < height && !hollow)         block.ID = World_Block_ID::STONE;
+                else if (iy == height && !hollow)   block.ID = World_Block_ID::GRASS;
+                else                                block.ID = World_Block_ID::AIR;
             }
         }
     }
 
-    for (int iz = 0; iz < WORLD_CHUNK_Z_SIZE; iz++)
+    // Populate height data
+    for (int iz = 0; iz < World_CHUNK_Z_SIZE; iz++)
     {
-        for (int ix = 0; ix < WORLD_CHUNK_X_SIZE; ix++)
+        for (int ix = 0; ix < World_CHUNK_X_SIZE; ix++)
         {
-            for (int iy = WORLD_CHUNK_Y_SIZE - 1; iy >= 0; iy--)
+            for (int iy = World_CHUNK_Y_SIZE - 1; iy >= 0; iy--)
             {
-                if (chunk->BlockData.At(ix, iy, iz).ID != BlockID::AIR)
+                if (chunk->Blocks.At(ix, iy, iz).ID != World_Block_ID::AIR)
                 {
-                    chunk->HeightData.At(ix, iz) = static_cast<std::uint8_t>(iy);
+                    chunk->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
 
                     break;
                 }

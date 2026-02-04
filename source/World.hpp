@@ -1,24 +1,18 @@
 #pragma once
 
-#include <memory>
-#include <unordered_map>
 #include "World_Definitions.hpp"
 #include "World_Block.hpp"
-#include "World_Chunk.hpp"
-#include "World_TerrainGenerator.hpp"
 #include "Utility_Array2D.hpp"
 
 class Camera;
+struct World_Chunk;
 
-namespace World
-{
-    void Initialize();
-    void Terminate();
-    void Update(Camera& camera);
+void World_Initialize();
+void World_Terminate();
+void World_Update(const Camera& camera);
 
-    Block GetBlockAt(WorldPosition position);
+World_Block World_GetBlockAt(World_GlobalXYZ position);
 
-    Chunk* GetChunkAt(WorldPosition position);
+const World_Chunk* World_GetChunkAt(World_GlobalXYZ position);
 
-    const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& GetActiveArea();
-};
+const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& World_GetActiveArea();

@@ -1,10 +1,8 @@
 #include "World_Block.hpp"
 
-#include <string_view>
-
 namespace
 {
-    constexpr std::string_view BlockNames[static_cast<int>(BlockID::COUNT)]
+    constexpr std::string_view BLOCK_NAMES[static_cast<std::size_t>(World_Block_ID::COUNT)]
     {
         "Air",
         "Stone",
@@ -20,7 +18,7 @@ namespace
     };
 }
 
-std::string_view Block::GetBlockName(BlockID id)
+std::string_view World_Block_GetBlockName(World_Block_ID block_id)
 {
-    return BlockNames[static_cast<int>(id)];
+    return BLOCK_NAMES[static_cast<std::size_t>(block_id)];
 }

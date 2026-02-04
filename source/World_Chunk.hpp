@@ -1,40 +1,42 @@
 #pragma once
 
 #include <cstdint>
-#include <cstddef>
 #include "World_Definitions.hpp"
 #include "World_Block.hpp"
 #include "Utility_Array2D.hpp"
 #include "Utility_Array3D.hpp"
 
-using ChunkBlockData  = Array3D<Block, WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
-using ChunkHeightData = Array2D<std::uint8_t, WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Z_SIZE>;
+using World_Chunk_BlockData  = Array3D<World_Block, World_CHUNK_X_SIZE, World_CHUNK_Y_SIZE, World_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
+using World_Chunk_LightData  = Array3D<World_Light, World_CHUNK_X_SIZE, World_CHUNK_Y_SIZE, World_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
+using World_Chunk_HeightData = Array2D<std::uint8_t, World_CHUNK_X_SIZE, World_CHUNK_Z_SIZE, Array2DStoreOrder::YX>;
 
-struct Chunk
+struct World_Chunk
 {
-    const ChunkID ID;
+    World_ChunkID   ID;
 
-    bool   NeighboursSet = false;
+    bool            HasModified   = false;
+    bool            NeighboursSet = false;
 
-    Chunk* NeighbourXNZ0 = nullptr;
-    Chunk* NeighbourXPZ0 = nullptr;
-    Chunk* NeighbourX0ZN = nullptr;
-    Chunk* NeighbourX0ZP = nullptr;
-    Chunk* NeighbourXNZN = nullptr;
-    Chunk* NeighbourXPZN = nullptr;
-    Chunk* NeighbourXNZP = nullptr;
-    Chunk* NeighbourXPZP = nullptr;
+    World_Chunk*    NeighbourXNZ0 = nullptr;
+    World_Chunk*    NeighbourXPZ0 = nullptr;
+    World_Chunk*    NeighbourX0ZN = nullptr;
+    World_Chunk*    NeighbourX0ZP = nullptr;
+    World_Chunk*    NeighbourXNZN = nullptr;
+    World_Chunk*    NeighbourXPZN = nullptr;
+    World_Chunk*    NeighbourXNZP = nullptr;
+    World_Chunk*    NeighbourXPZP = nullptr;
 
-    ChunkBlockData  BlockData;
-    ChunkHeightData HeightData;
-
-    explicit Chunk(ChunkID id) : ID{ id } {}
-
-    ChunkID  GetID() const { return ID; }
-    WorldPosition GetOffset() const { return ID * WorldPosition{ WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE }; }
-
-    Block GetBlockAt(int x, int y, int z) const;
-    Block GetBlockAt(ChunkPosition position)   const;
-
-    std::array<Block, (int)BlockNeighbour::COUNT> GetNeighbourBlocksAt(ChunkPosition position) const;
+    World_Chunk_BlockData  Blocks;
+    World_Chunk_LightData  Lights;
+    World_Chunk_HeightData Heights;
 };
+
+World_Block World_Chunk_GetBlockAt(const World_Chunk* self, World_LocalXYZ local);
+World_Light World_Chunk_GetSunlightAt(const World_Chunk* self, World_LocalXYZ local);
+World_Light World_Chunk_GetPointlightAt(const World_Chunk* self, World_LocalXYZ local);
+
+void World_Chunk_SetBlockAt(World_Chunk* self, World_LocalXYZ local, World_Block block);
+void World_Chunk_SetSunlightAt(World_Chunk* self, World_LocalXYZ local, World_Light sunlight);
+void World_Chunk_SetPointlightAt(World_Chunk* self, World_LocalXYZ local, World_Light pointlight);
+
+std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> World_Chunk_GetNeighbourBlocks(const World_Chunk* self, World_LocalXYZ local);

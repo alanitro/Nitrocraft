@@ -1,11 +1,11 @@
-#include "Utility_File.hpp"
+#include "Utility_IO.hpp"
 
 #include <sstream>
 #include <fstream>
 #include <print>
 #include <stb/stb_image.h>
 
-std::optional<std::string> File::ReadFile(std::string_view filepath)
+std::optional<std::string> IO_ReadFile(std::string_view filepath)
 {
     std::ifstream file;
 
@@ -20,7 +20,7 @@ std::optional<std::string> File::ReadFile(std::string_view filepath)
     return buffer.str();
 }
 
-std::optional<File::Image> File::ReadImage(std::string_view filepath, bool image_flip)
+std::optional<IO_Image> IO_ReadImage(std::string_view filepath, bool image_flip)
 {
     stbi_set_flip_vertically_on_load(image_flip);
 
@@ -34,5 +34,5 @@ std::optional<File::Image> File::ReadImage(std::string_view filepath, bool image
 
     stbi_image_free(image_ptr);
 
-    return File::Image(image_data, width, height, channel_numbers);
+    return IO_Image(image_data, width, height, channel_numbers);
 }

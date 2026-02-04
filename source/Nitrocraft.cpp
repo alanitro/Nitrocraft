@@ -204,9 +204,9 @@ void Nitrocraft_Run()
     camera.SetFar(512.0f);
     camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
 
-    World::Initialize();
-
     WorldRenderer_Initialize();
+
+    World_Initialize();
 
     //// Pipeline config
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -219,41 +219,15 @@ void Nitrocraft_Run()
         //// Update
         ImGUI_NewFrame();
 
-        /*if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        {
-            static double previously_pressed_time = glfwGetTime() - 0.051;
-
-            if (glfwGetTime() > previously_pressed_time + 0.05)
-            {
-                switch (state)
-                {
-                    case State::ACTIVE:
-                        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                        break;
-
-                    case State::PAUSE:
-                        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-                        if (glfwRawMouseMotionSupported()) glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            previously_pressed_time = glfwGetTime();
-        }*/
-
         if (glfwWindowShouldClose(window)) is_running = false;
 
         if (state == State::ACTIVE) RecalculateCamera(camera, window, timer.Elapsed());
 
         timer.Reset();
 
-        World::Update(camera);
+        World_Update(camera);
 
-        WorldRenderer_PrepareChunksToRender(World::GetActiveArea());
+        WorldRenderer_PrepareChunksToRender(World_GetActiveArea());
 
         if (ImGui::Begin("Information & Configs"))
         {
@@ -270,7 +244,7 @@ void Nitrocraft_Run()
             ImGui::Text("State : %s", state_names[(int)state]);
             ImGui::Text(" ");
 
-            auto id = FromWorldPositionToChunkID(camera.GetPosition());
+            auto id = World_FromGlobalToChunkID(camera.GetPosition());
             ImGui::Text("Chunk ID : %d %d", id.x, id.z);
             ImGui::Text(" ");
 
@@ -310,7 +284,7 @@ void Nitrocraft_Run()
     }
 
     // Terminate
-    World::Terminate();
+    World_Terminate();
 
     WorldRenderer_Terminate();
 

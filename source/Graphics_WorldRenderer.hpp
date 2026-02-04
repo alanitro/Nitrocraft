@@ -4,10 +4,10 @@
 #include "Utility_Array2D.hpp"
 
 class Camera;
-struct Chunk;
+struct World_Chunk;
 
 void WorldRenderer_Initialize();
 void WorldRenderer_Terminate();
 
 void WorldRenderer_Render(const Camera& camera);
-void WorldRenderer_PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& active_area);
+void WorldRenderer_PrepareChunksToRender(const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& active_area);

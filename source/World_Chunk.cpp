@@ -1,33 +1,57 @@
 #include "World_Chunk.hpp"
 
-Block Chunk::GetBlockAt(int x, int y, int z) const
+World_Block World_Chunk_GetBlockAt(const World_Chunk* self, World_LocalXYZ local)
 {
-    return BlockData.At(x, y, z);
+    return self->Blocks.At(local.x, local.y, local.z);
 }
 
-Block Chunk::GetBlockAt(ChunkPosition position) const
+World_Light World_Chunk_GetSunlightAt(const World_Chunk* self, World_LocalXYZ local)
 {
-    return BlockData.At(position.x, position.y, position.z);
+    return World_ExtractSunlight(self->Lights.At(local.x, local.y, local.z));
 }
 
-std::array<Block, (int)BlockNeighbour::COUNT> Chunk::GetNeighbourBlocksAt(ChunkPosition position) const
+World_Light World_Chunk_GetPointlightAt(const World_Chunk* self, World_LocalXYZ local)
 {
-    int& x = position.x;
-    int& y = position.y;
-    int& z = position.z;
+    return World_ExtractPointlight(self->Lights.At(local.x, local.y, local.z));
+}
 
-    Chunk* cxn = NeighbourXNZ0;
-    Chunk* cxp = NeighbourXPZ0;
-    Chunk* czn = NeighbourX0ZN;
-    Chunk* czp = NeighbourX0ZP;
+void World_Chunk_SetBlockAt(World_Chunk* self, World_LocalXYZ local, World_Block block)
+{
+    self->Blocks.At(local.x, local.y, local.z) = block;
+}
 
-    return std::array<Block, (int)BlockNeighbour::COUNT>
+void World_Chunk_SetSunlightAt(World_Chunk* self, World_LocalXYZ local, World_Light sunlight)
+{
+    auto& light = self->Lights.At(local.x, local.y, local.z);
+
+    light = (light & 0xF0) | ((sunlight << 0) & 0x0F);
+}
+
+void World_Chunk_SetPointlightAt(World_Chunk* self, World_LocalXYZ local, World_Light pointlight)
+{
+    auto& light = self->Lights.At(local.x, local.y, local.z);
+
+    light = (light & 0x0F) | ((pointlight << 4) & 0xF0);
+}
+
+std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> World_Chunk_GetNeighbourBlocks(const World_Chunk* self, World_LocalXYZ local)
+{
+    int& x = local.x;
+    int& y = local.y;
+    int& z = local.z;
+
+    World_Chunk* cxp = self->NeighbourXPZ0;
+    World_Chunk* czn = self->NeighbourX0ZN;
+    World_Chunk* czp = self->NeighbourX0ZP;
+    World_Chunk* cxn = self->NeighbourXNZ0;
+
+    return std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)>
     {
-        (x != 0)                        ? GetBlockAt(x - 1, y, z) : cxn->GetBlockAt(WORLD_CHUNK_X_SIZE - 1, y, z),
-        (x != WORLD_CHUNK_X_SIZE - 1)   ? GetBlockAt(x + 1, y, z) : cxp->GetBlockAt(0, y, z),
-        (y != 0)                        ? GetBlockAt(x, y - 1, z) : BlockID::AIR,
-        (y != WORLD_CHUNK_Y_SIZE - 1)   ? GetBlockAt(x, y + 1, z) : BlockID::AIR,
-        (z != 0)                        ? GetBlockAt(x, y, z - 1) : czn->GetBlockAt(x, y, WORLD_CHUNK_Z_SIZE - 1),
-        (z != WORLD_CHUNK_Z_SIZE - 1)   ? GetBlockAt(x, y, z + 1) : czp->GetBlockAt(x, y, 0)
+        (x != 0)                        ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x - 1, y, z)) : World_Chunk_GetBlockAt(cxn, World_LocalXYZ(World_CHUNK_X_SIZE - 1, y, z)),
+        (x != World_CHUNK_X_SIZE - 1)   ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x + 1, y, z)) : World_Chunk_GetBlockAt(cxp, World_LocalXYZ(0, y, z)),
+        (y != 0)                        ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x, y - 1, z)) : World_Block(World_Block_ID::AIR),
+        (y != World_CHUNK_Y_SIZE - 1)   ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x, y + 1, z)) : World_Block(World_Block_ID::AIR),
+        (z != 0)                        ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x, y, z - 1)) : World_Chunk_GetBlockAt(czn, World_LocalXYZ(x, y, World_CHUNK_Z_SIZE - 1)),
+        (z != World_CHUNK_Z_SIZE - 1)   ? World_Chunk_GetBlockAt(self, World_LocalXYZ(x, y, z + 1)) : World_Chunk_GetBlockAt(czp, World_LocalXYZ(x, y, 0))
     };
 }

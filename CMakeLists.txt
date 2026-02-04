@@ -16,8 +16,8 @@ add_executable(${PROJECT_NAME}
     source/World_Block.cpp
     source/World_Chunk.hpp
     source/World_Chunk.cpp
-    source/World_TerrainGenerator.hpp
-    source/World_TerrainGenerator.cpp
+    source/World_TerrainGeneration.hpp
+    source/World_TerrainGeneration.cpp
 
     source/Graphics_Camera.hpp
     source/Graphics_Camera.cpp
@@ -28,8 +28,8 @@ add_executable(${PROJECT_NAME}
     source/Utility_Timer.hpp
     source/Utility_Array2D.hpp
     source/Utility_Array3D.hpp
-    source/Utility_File.hpp
-    source/Utility_File.cpp
+    source/Utility_IO.hpp
+    source/Utility_IO.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)

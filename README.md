@@ -3,9 +3,8 @@
 An implementation of a small Minecraft clone using C++ and OpenGL.
 
 ## Introduction
-Yet another insignificant Minecraft clone using C++ and OpenGL.\
-This project is done mainly for learning C++, computer graphics, and internal workings of Minecraft which was a mystery to me since I was a child.
-
+Yet another Minecraft clone in C++ and OpenGL.\
+Built primarily to learn C++ programming, computer graphics, and the internal workings of Minecraft.
 
 ## Installation
 ```
@@ -39,3 +38,6 @@ cmake --build ./build --config [Release|Debug]
 - Gradient noises :\
 <https://adrianb.io/2014/08/09/perlinnoise.html>\
 <https://muugumuugu.github.io/bOOkshelF/generative%20art/simplexnoise.pdf>
+- Voxel lighting:\
+<https://www.reddit.com/r/gamedev/comments/2iru8i/fast_flood_fill_lighting_in_a_blocky_voxel_game/>\
+<https://www.reddit.com/r/gamedev/comments/2k7gxt/fast_flood_fill_lighting_in_a_blocky_voxel_game/>
