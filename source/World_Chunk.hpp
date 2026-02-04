@@ -8,7 +8,7 @@
 #include "Utility_Array3D.hpp"
 
 using ChunkBlockData  = Array3D<Block, WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Y_SIZE, WORLD_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
-using ChunkHeightData = Array2D<Block, WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Z_SIZE>;
+using ChunkHeightData = Array2D<std::uint8_t, WORLD_CHUNK_X_SIZE, WORLD_CHUNK_Z_SIZE>;
 
 struct Chunk
 {
