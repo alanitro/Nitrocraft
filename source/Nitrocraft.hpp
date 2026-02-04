@@ -1,6 +1,3 @@
 #pragma once
 
-namespace Nitrocraft
-{
-    void Run();
-}
+void Nitrocraft_Run();

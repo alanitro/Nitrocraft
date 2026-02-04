@@ -2,7 +2,7 @@
 
 int main()
 {
-    Nitrocraft::Run();
+    Nitrocraft_Run();
 
     return 0;
 }

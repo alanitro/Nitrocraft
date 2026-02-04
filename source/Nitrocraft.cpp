@@ -150,7 +150,7 @@ void ImGUI_Initialize(GLFWwindow* window)
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+    io.FontGlobalScale = 1.6f;
 
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -184,10 +184,9 @@ void ImGUI_Render()
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     // (Your code calls glfwSwapBuffers() etc.)
 }
-
 } // namespace unnamed
 
-void Nitrocraft::Run()
+void Nitrocraft_Run()
 {
     // Initialization
     GLFWwindow* window = InitializeGLFWAndOpenGLContext();
@@ -205,11 +204,9 @@ void Nitrocraft::Run()
     camera.SetFar(512.0f);
     camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
 
-    World world;
-    world.Initialize();
+    World::Initialize();
 
-    WorldRenderer world_renderer;
-    world_renderer.Initialize();
+    WorldRenderer_Initialize();
 
     //// Pipeline config
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -254,11 +251,11 @@ void Nitrocraft::Run()
 
         timer.Reset();
 
-        world.Update(camera);
+        World::Update(camera);
 
-        world_renderer.PrepareChunksToRender(world.GetActiveArea());
+        WorldRenderer_PrepareChunksToRender(World::GetActiveArea());
 
-        if (ImGui::Begin("Information & Settings"))
+        if (ImGui::Begin("Information & Configs"))
         {
             int width, height;
             glfwGetFramebufferSize(window, &width, &height);
@@ -303,7 +300,7 @@ void Nitrocraft::Run()
         //// Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        world_renderer.Render(camera);
+        WorldRenderer_Render(camera);
 
         ImGUI_Render();
 
@@ -313,9 +310,9 @@ void Nitrocraft::Run()
     }
 
     // Terminate
-    world.Terminate();
+    World::Terminate();
 
-    world_renderer.Terminate();
+    WorldRenderer_Terminate();
 
     ImGUI_Terminate();
     

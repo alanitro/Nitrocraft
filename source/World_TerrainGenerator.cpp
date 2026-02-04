@@ -74,7 +74,7 @@ namespace
     }
 }
 
-void TerrainGenerator::Initialize(int world_seed)
+void TerrainGenerator_Initialize(int world_seed)
 {
     WorldSeed = world_seed;
 
@@ -128,7 +128,7 @@ void TerrainGenerator::Initialize(int world_seed)
     }
 }
 
-void TerrainGenerator::GenerateTerrain(Chunk* chunk)
+void TerrainGenerator_GenerateTerrain(Chunk* chunk)
 {
     auto chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
 

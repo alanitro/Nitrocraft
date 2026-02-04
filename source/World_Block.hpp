@@ -31,6 +31,27 @@ enum class BlockNeighbour
     COUNT = 6,
 };
 
+enum class BlockFace
+{
+    XN, XP,
+    YN, YP,
+    ZN, ZP,
+
+    COUNT = 6,
+};
+
+enum class BlockFaceBit : std::uint32_t
+{
+    XN = (1u << static_cast<std::uint32_t>(BlockFace::XN)),
+    XP = (1u << static_cast<std::uint32_t>(BlockFace::XP)),
+    YN = (1u << static_cast<std::uint32_t>(BlockFace::YN)),
+    YP = (1u << static_cast<std::uint32_t>(BlockFace::YP)),
+    ZN = (1u << static_cast<std::uint32_t>(BlockFace::ZN)),
+    ZP = (1u << static_cast<std::uint32_t>(BlockFace::ZP)),
+
+    COUNT = 6,
+};
+
 struct Block
 {
     BlockID ID = BlockID::AIR;

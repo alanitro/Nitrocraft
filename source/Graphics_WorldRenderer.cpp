@@ -1,135 +1,149 @@
 #include "Graphics_WorldRenderer.hpp"
 
 #include <array>
+#include <unordered_map>
 #include <print>
 #include <glm/vec2.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glad/gl.h>
 #include "Utility_File.hpp"
 #include "Graphics_Camera.hpp"
 #include "World_Definitions.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
 
-namespace
+namespace // internal
 {
-    enum class BlockFace
+struct ChunkMeshVertex
+{
+    float        X; // Vertex position (x,y,z)
+    float        Y;
+    float        Z;
+    float        S; // Texture coordinate (s,t)
+    float        T;
+    std::uint8_t F; // Face
+};
+
+struct ChunkMesh
+{
+    GLuint VertexArrayID;
+    GLuint VertexBufferID;
+    GLuint IndexBufferID;
+    std::uint32_t IndicesCount;
+
+    void Create();
+    void Destroy();
+};
+
+constexpr std::array<std::array<float, 12>, static_cast<int>(BlockFace::COUNT)> BLOCK_FACES
+{
+    std::array<float, 12>
     {
-        XN, XP,
-        YN, YP,
-        ZN, ZP,
-
-        COUNT = 6,
-    };
-
-    enum class BlockFaceBit : std::uint32_t
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
     {
-        XN = (1u << static_cast<std::uint32_t>(BlockFace::XN)),
-        XP = (1u << static_cast<std::uint32_t>(BlockFace::XP)),
-        YN = (1u << static_cast<std::uint32_t>(BlockFace::YN)),
-        YP = (1u << static_cast<std::uint32_t>(BlockFace::YP)),
-        ZN = (1u << static_cast<std::uint32_t>(BlockFace::ZN)),
-        ZP = (1u << static_cast<std::uint32_t>(BlockFace::ZP)),
-
-        COUNT = 6,
-    };
-
-    constexpr std::array<std::array<float, 12>, static_cast<int>(BlockFace::COUNT)> BlockFaces
+        1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 1.0f,
+    },
+    std::array<float, 12>
     {
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            1.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 1.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 1.0f,
-            0.0f, 0.0f, 1.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-        },
-    };
-
-    // Tilemap index
-    consteval glm::vec2 TI(int s, int t)
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+    },
+    std::array<float, 12>
     {
-        constexpr float w = 1.0f / 16.0f;
-
-        return glm::vec2
-        (
-            static_cast<float>(s) * w,
-            static_cast<float>(t) * w
-        );
-    }
-
-    constexpr glm::vec2 BlockTilemapOffsets[static_cast<int>(BlockID::COUNT)][static_cast<int>(BlockFace::COUNT)]
+        0.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
     {
-        { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
-        { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
-        { TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0)  }, // Bedrock
-        { TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0)  }, // Dirt
-        { TI(4,1),  TI(4,1),  TI(4,0),  TI(4,2),  TI(4,1),  TI(4,1)  }, // Grass
-        { TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0)  }, // Sand
-        { TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0)  }, // Snow
-        { TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0)  }, // Brick
-        { TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0)  }, // Glowstone
-        { TI(9,1),  TI(9,1),  TI(9,0),  TI(9,2),  TI(9,1),  TI(9,1)  }, // Oak
-        { TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0) }, // Oak Leaves
-        { TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0) }, // Oak Wood
-    };
+        1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+    },
+    std::array<float, 12>
+    {
+        0.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 1.0f,
+    },
+};
+
+// Tilemap index
+consteval glm::vec2 TI(int s, int t)
+{
+    constexpr float w = 1.0f / 16.0f;
+
+    return glm::vec2
+    (
+        static_cast<float>(s) * w,
+        static_cast<float>(t) * w
+    );
 }
 
-void WorldRenderer::Initialize()
+constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(BlockID::COUNT)][static_cast<int>(BlockFace::COUNT)]
+{
+    { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
+    { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
+    { TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0)  }, // Bedrock
+    { TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0)  }, // Dirt
+    { TI(4,1),  TI(4,1),  TI(4,0),  TI(4,2),  TI(4,1),  TI(4,1)  }, // Grass
+    { TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0)  }, // Sand
+    { TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0)  }, // Snow
+    { TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0)  }, // Brick
+    { TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0)  }, // Glowstone
+    { TI(9,1),  TI(9,1),  TI(9,0),  TI(9,2),  TI(9,1),  TI(9,1)  }, // Oak
+    { TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0) }, // Oak Leaves
+    { TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0) }, // Oak Wood
+};
+
+GLuint i_ShaderProgram = 0;
+GLuint i_Texture = 0;
+
+std::vector<ChunkMesh*>                 i_ChunksToRender;
+std::unordered_map<ChunkID, ChunkMesh>  i_ChunkMeshes;
+
+void PushChunksToRender(const Chunk* chunk);
+void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const Chunk* chunk);
+void LoadShaderProgram();
+void LoadTexture();
+
+} // !namespace internal
+
+void WorldRenderer_Initialize()
 {
     LoadShaderProgram();
 
     LoadTexture();
 }
 
-void WorldRenderer::Terminate()
+void WorldRenderer_Terminate()
 {
-    for (auto& [chunk_id, chunk_mesh] : m_ChunkMeshes)
+    for (auto& [chunk_id, chunk_mesh] : i_ChunkMeshes)
     {
         chunk_mesh.Destroy();
     }
 
-    glDeleteProgram(m_ShaderProgram);
+    glDeleteProgram(i_ShaderProgram);
 
-    glDeleteTextures(1, &m_Texture);
+    glDeleteTextures(1, &i_Texture);
 }
 
-void WorldRenderer::Render(const Camera& camera)
+void WorldRenderer_Render(const Camera& camera)
 {
-    glUseProgram(m_ShaderProgram);
+    glUseProgram(i_ShaderProgram);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -139,24 +153,24 @@ void WorldRenderer::Render(const Camera& camera)
     glFrontFace(GL_CCW);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_Texture);
-    glUniform1i(glGetUniformLocation(m_ShaderProgram, "u_Texture"), 0);
+    glBindTexture(GL_TEXTURE_2D, i_Texture);
+    glUniform1i(glGetUniformLocation(i_ShaderProgram, "u_Texture"), 0);
 
     auto& model_view_projection = camera.GetViewProjection();
 
-    glUniformMatrix4fv(glGetUniformLocation(m_ShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
+    glUniformMatrix4fv(glGetUniformLocation(i_ShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
 
-    for (auto chunk_mesh : m_ChunksToRender)
+    for (auto chunk_mesh : i_ChunksToRender)
     {
         glBindVertexArray(chunk_mesh->VertexArrayID);
 
         glDrawElements(GL_TRIANGLES, chunk_mesh->IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
     }
 
-    m_ChunksToRender.clear();
+    i_ChunksToRender.clear();
 }
 
-void WorldRenderer::PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& active_area)
+void WorldRenderer_PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& active_area)
 {
     constexpr int diff = WORLD_LOADING_RADIUS - WORLD_RENDER_DISTANCE;
 
@@ -169,26 +183,25 @@ void WorldRenderer::PrepareChunksToRender(const Array2D<Chunk*, WORLD_LOADING_DI
     }
 }
 
-void WorldRenderer::PushChunksToRender(const Chunk* chunk)
+namespace // internal
+{
+void PushChunksToRender(const Chunk* chunk)
 {
     ChunkID chunk_id = chunk->ID;
     WorldPosition chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
 
-    if (
-        const auto& iter = m_ChunkMeshes.find(chunk_id);
-        iter != m_ChunkMeshes.end()
-    )
+    if (const auto& iter = i_ChunkMeshes.find(chunk_id); iter != i_ChunkMeshes.end())
     {
-        m_ChunksToRender.push_back(&iter->second);
+        i_ChunksToRender.push_back(&iter->second);
         return;
     }
     else
     {
         iter->second.Destroy();
-        m_ChunkMeshes.erase(chunk_id);
+        i_ChunkMeshes.erase(chunk_id);
     }
 
-    auto [it, inserted] = m_ChunkMeshes.emplace(chunk_id, ChunkMesh{});
+    auto [it, inserted] = i_ChunkMeshes.emplace(chunk_id, ChunkMesh{});
 
     auto& mesh = it->second;
     mesh.Create();
@@ -198,23 +211,23 @@ void WorldRenderer::PushChunksToRender(const Chunk* chunk)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.IndexBufferID);
 
     std::vector<ChunkMeshVertex> vertices;
-    std::vector<std::uint32_t>   indices;
+    std::vector<std::uint32_t>   indices;  
 
     GenerateMesh(vertices, indices, chunk);
 
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkMeshVertex), vertices.data(), GL_STATIC_DRAW);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
-    
+
     mesh.IndicesCount = static_cast<std::uint32_t>(indices.size());
 
-    m_ChunksToRender.push_back(&mesh);
+    i_ChunksToRender.push_back(&mesh);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const Chunk* chunk)
+void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const Chunk* chunk)
 {
     WorldPosition chunk_offset = FromChunkIDToChunkOffset(chunk->ID);
 
@@ -250,9 +263,9 @@ void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::ve
                     if (!(blockface_bitmask & (1u << face))) continue;
 
                     // Populate vertices 
-                    const std::array<float, 12>& block_face = BlockFaces[face];
+                    const std::array<float, 12>& block_face = BLOCK_FACES[face];
 
-                    glm::vec2 tile_map_offset = BlockTilemapOffsets[static_cast<int>(block.ID)][static_cast<int>(face)];
+                    glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[static_cast<int>(block.ID)][static_cast<int>(face)];
 
                     for (int i = 0; i < 4; i++)
                     {
@@ -286,7 +299,7 @@ void WorldRenderer::GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::ve
     }
 }
 
-void WorldRenderer::LoadShaderProgram()
+void LoadShaderProgram()
 {
     // Load shader sources
     auto vertex_shader_path = "./resource/shader/Chunk.vert.glsl";
@@ -353,10 +366,10 @@ void WorldRenderer::LoadShaderProgram()
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
-    m_ShaderProgram = program;
+    i_ShaderProgram = program;
 }
 
-void WorldRenderer::LoadTexture()
+void LoadTexture()
 {
     auto image_opt = File::ReadImage("./resource/texture/Blocks.png", true);
 
@@ -384,10 +397,10 @@ void WorldRenderer::LoadTexture()
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    m_Texture = texture;
+    i_Texture = texture;
 }
 
-void WorldRenderer::ChunkMesh::Create()
+void ChunkMesh::Create()
 {
     glGenVertexArrays(1, &VertexArrayID);
     glGenBuffers(1, &VertexBufferID);
@@ -407,10 +420,11 @@ void WorldRenderer::ChunkMesh::Create()
     IndicesCount = 0;
 }
 
-void WorldRenderer::ChunkMesh::Destroy()
+void ChunkMesh::Destroy()
 {
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
     glDeleteBuffers(1, &IndexBufferID);
     IndicesCount = 0;
 }
+} // !namespace internal

@@ -10,31 +10,15 @@
 
 class Camera;
 
-class World
+namespace World
 {
-public:
-    World() = default;
-    ~World() = default;
-    World(const World&) = delete;
-    World& operator=(const World&) = delete;
-
     void Initialize();
     void Terminate();
     void Update(Camera& camera);
 
-    Block GetBlockAt(WorldPosition position) const;
+    Block GetBlockAt(WorldPosition position);
 
-    Chunk* GetChunkAt(WorldPosition position) const;
+    Chunk* GetChunkAt(WorldPosition position);
 
-    const auto& GetActiveArea() const
-    {
-        return m_ActiveArea;
-    }
-
-private:
-    std::unordered_map<ChunkID, std::unique_ptr<Chunk>> m_ChunkMap;
-
-    Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER> m_ActiveArea{};
-
-    void Update_ActiveArea(ChunkID center_chunk_id);
+    const Array2D<Chunk*, WORLD_LOADING_DIAMETER, WORLD_LOADING_DIAMETER>& GetActiveArea();
 };

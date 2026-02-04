@@ -2,9 +2,6 @@
 
 struct Chunk;
 
-namespace TerrainGenerator
-{
-    void Initialize(int world_seed);
+void TerrainGenerator_Initialize(int world_seed);
 
-    void GenerateTerrain(Chunk* chunk);
-}
+void TerrainGenerator_GenerateTerrain(Chunk* chunk);
