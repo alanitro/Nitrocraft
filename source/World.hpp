@@ -7,9 +7,12 @@
 class Camera;
 struct World_Chunk;
 
-void World_Initialize();
-void World_Terminate();
-void World_Update(const Camera& camera);
+void        World_Initialize();
+void        World_Terminate();
+void        World_Update(const Camera& camera);
+
+float       World_GetSunlightIntensity();
+glm::vec3   World_GetSkyColor();
 
 World_Block World_GetBlockAt(World_GlobalXYZ position);
 

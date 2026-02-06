@@ -6,9 +6,12 @@
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
 #include "World_TerrainGeneration.hpp"
+#include "Utility_Time.hpp"
 
 namespace
 {
+    constexpr glm::vec3 SKY_COLOR = { 0.2f, 0.75f, 0.95f };
+
     std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         World_ChunkMap;
     Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>   World_ActiveArea{};
 
@@ -30,6 +33,16 @@ void World_Terminate()
 void World_Update(const Camera& camera)
 {
     Update_ActiveArea(World_FromGlobalToChunkID(camera.GetPosition()));
+}
+
+float World_GetSunlightIntensity()
+{
+    return std::sin(Time_GetTime()) * 0.5f + 1.0f;
+}
+
+glm::vec3 World_GetSkyColor()
+{
+    return SKY_COLOR * World_GetSunlightIntensity();
 }
 
 World_Block World_GetBlockAt(World_GlobalXYZ position)

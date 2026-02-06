@@ -11,6 +11,7 @@
 #include "World_Definitions.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
+#include "Utility_Time.hpp"
 
 namespace
 {
@@ -141,8 +142,10 @@ void WorldRenderer_Terminate()
     glDeleteTextures(1, &i_Texture);
 }
 
-void WorldRenderer_Render(const Camera& camera)
+void WorldRenderer_Render(const Camera& camera, float sunlight_intensity, glm::vec3 sky_color)
 {
+    glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
+
     glUseProgram(i_ShaderProgram);
 
     glEnable(GL_DEPTH_TEST);
@@ -159,6 +162,8 @@ void WorldRenderer_Render(const Camera& camera)
     auto& model_view_projection = camera.GetViewProjection();
 
     glUniformMatrix4fv(glGetUniformLocation(i_ShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
+    
+    glUniform1f(glGetUniformLocation(i_ShaderProgram, "u_SunlightIntensity"), sunlight_intensity);
 
     for (auto chunk_mesh : i_ChunksToRender)
     {

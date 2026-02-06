@@ -9,6 +9,7 @@
 #include "World.hpp"
 #include "Graphics_WorldRenderer.hpp"
 #include "Graphics_Camera.hpp"
+#include "Utility_Time.hpp"
 #include "Utility_Timer.hpp"
 
 namespace
@@ -274,7 +275,7 @@ void Nitrocraft_Run()
         //// Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        WorldRenderer_Render(camera);
+        WorldRenderer_Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
 
         ImGUI_Render();
 
