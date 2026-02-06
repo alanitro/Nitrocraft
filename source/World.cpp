@@ -14,7 +14,7 @@ namespace
     constexpr glm::vec3 SKY_COLOR = { 0.2f, 0.75f, 0.95f };
 
     std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         ChunkMap;
-    Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>   ActiveArea{};
+    World_ActiveArea   ActiveArea{};
 }
 
 void World_Initialize()
@@ -62,7 +62,7 @@ const World_Chunk* World_GetChunkAt(World_GlobalXYZ position)
     return iter->second.get();
 }
 
-const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& World_GetActiveArea()
+const World_ActiveArea& World_GetActiveArea()
 {
     return ActiveArea;
 }

@@ -175,7 +175,7 @@ void WorldRenderer_Render(const Camera& camera, float sunlight_intensity, glm::v
     i_ChunksToRender.clear();
 }
 
-void WorldRenderer_PrepareChunksToRender(const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& active_area)
+void WorldRenderer_PrepareChunksToRender(const World_ActiveArea& active_area)
 {
     constexpr int diff = World_LOADING_RADIUS - World_RENDER_DISTANCE;
 

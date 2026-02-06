@@ -1,6 +1,7 @@
 #pragma once
 
 #include "World_Definitions.hpp"
+#include "World_ActiveArea.hpp"
 #include "World_Block.hpp"
 #include "Utility_Array2D.hpp"
 
@@ -18,4 +19,4 @@ World_Block World_GetBlockAt(World_GlobalXYZ position);
 
 const World_Chunk* World_GetChunkAt(World_GlobalXYZ position);
 
-const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& World_GetActiveArea();
+const World_ActiveArea& World_GetActiveArea();
