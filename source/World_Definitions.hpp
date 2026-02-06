@@ -5,6 +5,53 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+// Block constants
+enum class World_BlockID : std::uint8_t
+{
+    AIR,
+    STONE,
+    BEDROCK,
+    DIRT,
+    GRASS,
+    SAND,
+    SNOW,
+    BRICK,
+    GLOWSTONE,
+    OAK,
+    OAK_LEAVES,
+    OAK_WOOD,
+
+    COUNT,
+};
+
+enum class World_BlockNeighbour
+{
+    XN, XP,
+    YN, YP,
+    ZN, ZP,
+
+    COUNT = 6,
+};
+
+enum class World_BlockFace
+{
+    XN, XP,
+    YN, YP,
+    ZN, ZP,
+
+    COUNT = 6,
+};
+
+enum class World_BlockFaceBit : std::uint32_t
+{
+    XN = (1u << static_cast<std::uint32_t>(World_BlockFace::XN)),
+    XP = (1u << static_cast<std::uint32_t>(World_BlockFace::XP)),
+    YN = (1u << static_cast<std::uint32_t>(World_BlockFace::YN)),
+    YP = (1u << static_cast<std::uint32_t>(World_BlockFace::YP)),
+    ZN = (1u << static_cast<std::uint32_t>(World_BlockFace::ZN)),
+    ZP = (1u << static_cast<std::uint32_t>(World_BlockFace::ZP)),
+};
+
 // Coordinates (Right handed coordinate)
 using World_Position  = glm::vec3;  // World relative position
 using World_GlobalXYZ = glm::ivec3; // World relative position

@@ -142,11 +142,11 @@ void World_TerrainGeneration_GenerateChunk(World_Chunk* chunk)
         {
             const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 32 + World_SEA_LEVEL + 32));
 
-            chunk->Blocks.At(ix, 0, iz).ID = World_Block_ID::BEDROCK;
+            chunk->Payload->Blocks.At(ix, 0, iz).ID = World_BlockID::BEDROCK;
 
             for (int iy = 1; iy < World_CHUNK_Y_SIZE; iy++)
             {
-                auto& block = chunk->Blocks.At(ix, iy, iz);
+                auto& block = chunk->Payload->Blocks.At(ix, iy, iz);
 
                 float cheese_sample     = CheeseCavernSamples.At(ix, iy, iz);
                 float spaghetti_sample1 = SpaghettiCavernSamples1.At(ix, iy, iz);
@@ -160,9 +160,9 @@ void World_TerrainGeneration_GenerateChunk(World_Chunk* chunk)
                     (spaghetti_sample1 < thickness && spaghetti_sample1 > -thickness) &&
                     (spaghetti_sample2 < thickness && spaghetti_sample2 > -thickness)) || cheese_sample < (-0.65f - density);
 
-                if (iy < height && !hollow)         block.ID = World_Block_ID::STONE;
-                else if (iy == height && !hollow)   block.ID = World_Block_ID::GRASS;
-                else                                block.ID = World_Block_ID::AIR;
+                if (iy < height && !hollow)         block.ID = World_BlockID::STONE;
+                else if (iy == height && !hollow)   block.ID = World_BlockID::GRASS;
+                else                                block.ID = World_BlockID::AIR;
             }
         }
     }
@@ -174,9 +174,9 @@ void World_TerrainGeneration_GenerateChunk(World_Chunk* chunk)
         {
             for (int iy = World_CHUNK_Y_SIZE - 1; iy >= 0; iy--)
             {
-                if (chunk->Blocks.At(ix, iy, iz).ID != World_Block_ID::AIR)
+                if (chunk->Payload->Blocks.At(ix, iy, iz).ID != World_BlockID::AIR)
                 {
-                    chunk->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
+                    chunk->Payload->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
 
                     break;
                 }

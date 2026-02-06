@@ -36,7 +36,7 @@ namespace
         void Destroy();
     };
 
-    constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_Block_Face::COUNT)> BLOCK_FACES
+    constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_BlockFace::COUNT)> BLOCK_FACES
     {
         std::array<float, 12>
         {
@@ -94,7 +94,7 @@ namespace
         );
     }
 
-    constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(World_Block_ID::COUNT)][static_cast<int>(World_Block_Face::COUNT)]
+    constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(World_BlockID::COUNT)][static_cast<int>(World_BlockFace::COUNT)]
     {
         { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
         { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
@@ -200,11 +200,6 @@ namespace // internal
             i_ChunksToRender.push_back(&iter->second);
             return;
         }
-        else
-        {
-            iter->second.Destroy();
-            i_ChunkMeshes.erase(chunk_id);
-        }
 
         auto [it, inserted] = i_ChunkMeshes.emplace(chunk_id, ChunkMesh{});
 
@@ -215,8 +210,10 @@ namespace // internal
         glBindBuffer(GL_ARRAY_BUFFER, mesh.VertexBufferID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.IndexBufferID);
 
-        std::vector<ChunkMeshVertex> vertices;
-        std::vector<std::uint32_t>   indices;
+        static std::vector<ChunkMeshVertex> vertices(World_CHUNK_VOLUME * 6 * 4);
+        static std::vector<std::uint32_t>   indices(World_CHUNK_VOLUME * 6 * 6);
+        vertices.clear();
+        indices.clear();
 
         GenerateMesh(vertices, indices, chunk);
 
@@ -245,25 +242,25 @@ namespace // internal
                     // Block face detection
                     World_Block block = World_Chunk_GetBlockAt(chunk, { x, y, z });
 
-                    if (block.ID == World_Block_ID::AIR) continue;
+                    if (block.ID == World_BlockID::AIR) continue;
 
                     auto neighbour_blocks = World_Chunk_GetNeighbourBlocks(chunk, { x, y, z });
 
                     std::uint32_t blockface_bitmask = 0;
 
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::XN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::XN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::XP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::XP);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::YN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::YN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::YP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::YP);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::ZN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::ZN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_Block_Face::ZP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_Block_FaceBit::ZP);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::XN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::XN);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::XP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::XP);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::YN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::YN);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::YP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::YP);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::ZN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::ZN);
+                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::ZP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::ZP);
 
                     if (blockface_bitmask == 0) continue;
 
                     // Chunk Mesh generation
                     World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(x, y, z);
 
-                    for (int face = static_cast<int>(World_Block_Face::XN); face <= static_cast<int>(World_Block_Face::ZP); face++)
+                    for (int face = static_cast<int>(World_BlockFace::XN); face <= static_cast<int>(World_BlockFace::ZP); face++)
                     {
                         if (!(blockface_bitmask & (1u << face))) continue;
 

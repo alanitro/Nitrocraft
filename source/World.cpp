@@ -12,8 +12,8 @@ namespace
 {
     constexpr glm::vec3 SKY_COLOR = { 0.2f, 0.75f, 0.95f };
 
-    std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         World_ChunkMap;
-    Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>   World_ActiveArea{};
+    std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         ChunkMap;
+    Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>   ActiveArea{};
 
     void Update_ActiveArea(World_ChunkID center_chunk_id);
 }
@@ -27,7 +27,7 @@ void World_Initialize()
 
 void World_Terminate()
 {
-    World_ChunkMap.clear();
+    ChunkMap.clear();
 }
 
 void World_Update(const Camera& camera)
@@ -49,75 +49,123 @@ World_Block World_GetBlockAt(World_GlobalXYZ position)
 {
     auto chunk = World_GetChunkAt(position);
 
-    if (chunk == nullptr) return World_Block{ World_Block_ID::AIR };
+    if (chunk == nullptr) return World_Block{ World_BlockID::AIR };
 
     return World_Chunk_GetBlockAt(chunk, World_FromGlobalToLocal(position));
 }
 
 const World_Chunk* World_GetChunkAt(World_GlobalXYZ position)
 {
-    auto iter = World_ChunkMap.find(World_FromGlobalToChunkID(position));
+    auto iter = ChunkMap.find(World_FromGlobalToChunkID(position));
 
-    if (iter == World_ChunkMap.end()) return nullptr;
+    if (iter == ChunkMap.end()) return nullptr;
 
     return iter->second.get();
 }
 
 const Array2D<World_Chunk*, World_LOADING_DIAMETER, World_LOADING_DIAMETER>& World_GetActiveArea()
 {
-    return World_ActiveArea;
+    return ActiveArea;
 }
 
 namespace
 {
-void Update_ActiveArea(World_ChunkID center_chunk_id)
-{
-    const World_ChunkID chunk_offset_id = center_chunk_id - World_ChunkID(World_LOADING_RADIUS, 0, World_LOADING_RADIUS);
-
-    for (int iz = 0; iz < World_LOADING_DIAMETER; iz++)
+//void Update_ActiveArea(World_ChunkID center_chunk_id)
+//{
+//    const World_ChunkID chunk_offset_id = center_chunk_id - World_ChunkID(World_LOADING_RADIUS, 0, World_LOADING_RADIUS);
+//
+//    for (int iz = 0; iz < World_LOADING_DIAMETER; iz++)
+//    {
+//        for (int ix = 0; ix < World_LOADING_DIAMETER; ix++)
+//        {
+//            auto chunk_id = World_ChunkID(chunk_offset_id + World_ChunkID(ix, 0, iz));
+//
+//            World_Chunk* chunk = nullptr;
+//
+//            if (auto iter = ChunkMap.find(chunk_id); iter != ChunkMap.end())
+//            {
+//                chunk = iter->second.get();
+//            }
+//            else
+//            {
+//                auto new_chunk = std::make_unique<World_Chunk>(chunk_id);
+//
+//                new_chunk->Payload = std::make_unique_for_overwrite<World_Chunk_Payload>();
+//
+//                chunk = new_chunk.get();
+//
+//                ChunkMap.emplace(chunk_id, std::move(new_chunk));
+//            }
+//
+//            ActiveArea.At(ix, iz) = chunk;
+//        }
+//    }
+//
+//    for (int iz = 1; iz < World_LOADING_DIAMETER - 1; iz++)
+//    {
+//        for (int ix = 1; ix < World_LOADING_DIAMETER - 1; ix++)
+//        {
+//            World_Chunk* chunk = ActiveArea.At(ix, iz);
+//            chunk->NeighbourXNZ0 = ActiveArea.At(ix - 1, iz);
+//            chunk->NeighbourXPZ0 = ActiveArea.At(ix + 1, iz);
+//            chunk->NeighbourX0ZN = ActiveArea.At(ix, iz - 1);
+//            chunk->NeighbourX0ZP = ActiveArea.At(ix, iz + 1);
+//            chunk->NeighbourXNZN = ActiveArea.At(ix - 1, iz - 1);
+//            chunk->NeighbourXPZN = ActiveArea.At(ix + 1, iz - 1);
+//            chunk->NeighbourXNZP = ActiveArea.At(ix - 1, iz + 1);
+//            chunk->NeighbourXPZP = ActiveArea.At(ix + 1, iz + 1);
+//            chunk->NeighboursSet = true;
+//        }
+//    }
+//}
+    void Update_ActiveArea(World_ChunkID center_chunk_id)
     {
-        for (int ix = 0; ix < World_LOADING_DIAMETER; ix++)
+        const World_ChunkID chunk_offset_id = center_chunk_id - World_ChunkID(World_LOADING_RADIUS, 0, World_LOADING_RADIUS);
+
+        for (int iz = 0; iz < World_LOADING_DIAMETER; iz++)
         {
-            auto chunk_id = World_ChunkID(chunk_offset_id + World_ChunkID(ix, 0, iz));
-
-            auto iter = World_ChunkMap.find(chunk_id);
-
-            if (iter != World_ChunkMap.end())
+            for (int ix = 0; ix < World_LOADING_DIAMETER; ix++)
             {
-                World_ActiveArea.At(ix, iz) = iter->second.get();
+                auto chunk_id = World_ChunkID(chunk_offset_id + World_ChunkID(ix, 0, iz));
 
-                continue;
+                World_Chunk* chunk = nullptr;
+
+                if (auto iter = ChunkMap.find(chunk_id); iter != ChunkMap.end())
+                {
+                    chunk = iter->second.get();
+                }
+                else
+                {
+                    auto new_chunk = std::make_unique<World_Chunk>(chunk_id);
+
+                    new_chunk->Payload = std::make_unique_for_overwrite<World_Chunk_Payload>();
+
+                    chunk = new_chunk.get();
+
+                    World_TerrainGeneration_GenerateChunk(chunk);
+
+                    ChunkMap.emplace(chunk_id, std::move(new_chunk));
+                }
+
+                ActiveArea.At(ix, iz) = chunk;
             }
-            else
+        }
+
+        for (int iz = 1; iz < World_LOADING_DIAMETER - 1; iz++)
+        {
+            for (int ix = 1; ix < World_LOADING_DIAMETER - 1; ix++)
             {
-                World_ChunkMap.erase(chunk_id);
+                World_Chunk* chunk = ActiveArea.At(ix, iz);
+                chunk->NeighbourXNZ0 = ActiveArea.At(ix - 1, iz);
+                chunk->NeighbourXPZ0 = ActiveArea.At(ix + 1, iz);
+                chunk->NeighbourX0ZN = ActiveArea.At(ix, iz - 1);
+                chunk->NeighbourX0ZP = ActiveArea.At(ix, iz + 1);
+                chunk->NeighbourXNZN = ActiveArea.At(ix - 1, iz - 1);
+                chunk->NeighbourXPZN = ActiveArea.At(ix + 1, iz - 1);
+                chunk->NeighbourXNZP = ActiveArea.At(ix - 1, iz + 1);
+                chunk->NeighbourXPZP = ActiveArea.At(ix + 1, iz + 1);
+                chunk->NeighboursSet = true;
             }
-
-            auto [it, inserted] = World_ChunkMap.emplace(chunk_id, std::make_unique<World_Chunk>(chunk_id));
-
-            World_Chunk* new_chunk = it->second.get();
-
-            World_TerrainGeneration_GenerateChunk(new_chunk);
-
-            World_ActiveArea.At(ix, iz) = new_chunk;
         }
     }
-
-    for (int iz = 1; iz < World_LOADING_DIAMETER - 1; iz++)
-    {
-        for (int ix = 1; ix < World_LOADING_DIAMETER - 1; ix++)
-        {
-            World_Chunk* chunk = World_ActiveArea.At(ix, iz);
-            chunk->NeighbourXNZ0 = World_ActiveArea.At(ix - 1, iz);
-            chunk->NeighbourXPZ0 = World_ActiveArea.At(ix + 1, iz);
-            chunk->NeighbourX0ZN = World_ActiveArea.At(ix, iz - 1);
-            chunk->NeighbourX0ZP = World_ActiveArea.At(ix, iz + 1);
-            chunk->NeighbourXNZN = World_ActiveArea.At(ix - 1, iz - 1);
-            chunk->NeighbourXPZN = World_ActiveArea.At(ix + 1, iz - 1);
-            chunk->NeighbourXNZP = World_ActiveArea.At(ix - 1, iz + 1);
-            chunk->NeighbourXPZP = World_ActiveArea.At(ix + 1, iz + 1);
-            chunk->NeighboursSet = true;
-        }
-    }
-}
 }
