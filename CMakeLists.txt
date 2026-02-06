@@ -16,6 +16,8 @@ add_executable(${PROJECT_NAME}
     source/World_Block.cpp
     source/World_Chunk.hpp
     source/World_Chunk.cpp
+    source/World_ActiveArea.hpp
+    source/World_ActiveArea.cpp
     source/World_TerrainGeneration.hpp
     source/World_TerrainGeneration.cpp
 

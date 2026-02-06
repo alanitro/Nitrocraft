@@ -22,8 +22,9 @@ struct World_Chunk
 {
     const World_ChunkID   ID;
 
-    bool            HasModified   = false;
-    bool            NeighboursSet = false;
+    bool            GenerationComplete      = false;
+    bool            HasModified             = false;
+    bool            NeighboursSet           = false;
 
     World_Chunk*    NeighbourXNZ0 = nullptr;
     World_Chunk*    NeighbourXPZ0 = nullptr;
