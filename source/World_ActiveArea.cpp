@@ -28,7 +28,7 @@ void World_ActiveArea_LoadChunks(
             {
                 auto new_chunk = std::make_unique<World_Chunk>(chunk_id);
 
-                new_chunk->Payload = std::make_unique_for_overwrite<World_Chunk_Payload>();
+                new_chunk->Payload = std::make_unique<World_Chunk_Payload>();
 
                 chunk = new_chunk.get();
 
@@ -39,26 +39,35 @@ void World_ActiveArea_LoadChunks(
         }
     }
 
-    // Generation phase
     for (int iz = 1; iz < World_LOADING_DIAMETER - 1; iz++)
     {
         for (int ix = 1; ix < World_LOADING_DIAMETER - 1; ix++)
         {
             World_Chunk* chunk = active_area.At(ix, iz);
 
-            if (chunk->NeighboursSet == false)
-            {
-                chunk->NeighbourXNZ0 = active_area.At(ix - 1, iz);
-                chunk->NeighbourXPZ0 = active_area.At(ix + 1, iz);
-                chunk->NeighbourX0ZN = active_area.At(ix, iz - 1);
-                chunk->NeighbourX0ZP = active_area.At(ix, iz + 1);
-                chunk->NeighbourXNZN = active_area.At(ix - 1, iz - 1);
-                chunk->NeighbourXPZN = active_area.At(ix + 1, iz - 1);
-                chunk->NeighbourXNZP = active_area.At(ix - 1, iz + 1);
-                chunk->NeighbourXPZP = active_area.At(ix + 1, iz + 1);
+            if (chunk->NeighboursSet) continue;
 
-                chunk->NeighboursSet = true;
-            }
+            chunk->NeighbourXNZ0 = active_area.At(ix - 1, iz);
+            chunk->NeighbourXPZ0 = active_area.At(ix + 1, iz);
+            chunk->NeighbourX0ZN = active_area.At(ix, iz - 1);
+            chunk->NeighbourX0ZP = active_area.At(ix, iz + 1);
+            chunk->NeighbourXNZN = active_area.At(ix - 1, iz - 1);
+            chunk->NeighbourXPZN = active_area.At(ix + 1, iz - 1);
+            chunk->NeighbourXNZP = active_area.At(ix - 1, iz + 1);
+            chunk->NeighbourXPZP = active_area.At(ix + 1, iz + 1);
+
+            chunk->NeighboursSet = true;
+        }
+    }
+}
+
+void World_ActiveArea_PerformGenerationPhase(World_ActiveArea& active_area)
+{
+    for (int iz = 1; iz < World_LOADING_DIAMETER - 1; iz++)
+    {
+        for (int ix = 1; ix < World_LOADING_DIAMETER - 1; ix++)
+        {
+            World_Chunk* chunk = active_area.At(ix, iz);
 
             if (chunk->GenerationComplete) continue;
 
@@ -68,3 +77,99 @@ void World_ActiveArea_LoadChunks(
         }
     }
 }
+
+void World_ActiveArea_PerformLightingPhase(
+    World_ActiveArea& active_area,
+    std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue,
+    std::queue<World_Lighting_LightRemovalNode>& sunlight_rem_queue,
+    std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue,
+    std::queue<World_Lighting_LightRemovalNode>& pointlight_rem_queue
+)
+{
+    World_Lighting_UnpropagateSunlight(sunlight_rem_queue, sunlight_add_queue);
+
+    World_Lighting_PropagateSunlight(sunlight_add_queue);
+
+    World_Lighting_UnpropagatePointlight(pointlight_rem_queue, pointlight_add_queue);
+
+    World_Lighting_PropagatePointlight(pointlight_add_queue);
+
+    /*for (int az = 2; az < World_LOADING_DIAMETER - 2; az++)
+    {
+        for (int ax = 2; ax < World_LOADING_DIAMETER - 2; ax++)
+        {
+            World_Chunk* chunk = active_area.At(ax, az);
+
+            if (chunk->LightingComplete) continue;
+
+            for (int iz = 0; iz < World_CHUNK_Z_SIZE; iz++)
+            {
+                for (int ix = 0; ix < World_CHUNK_X_SIZE; ix++)
+                {
+                    for (int iy = World_CHUNK_Y_SIZE - 1; World_Block_IsOpaque(World_Chunk_GetBlockAt(chunk, World_LocalXYZ(ix, iy, iz))) == false; iy--)
+                    {
+                        World_Chunk_SetSunlightAt(chunk, World_LocalXYZ(ix, iy, iz), World_LIGHT_LEVEL_SUN);
+
+                        sunlight_add_queue.emplace(chunk, World_LocalXYZ(ix, iy, iz));
+                    }
+                }
+            }
+
+            World_Lighting_PropagateSunlight(sunlight_add_queue);
+
+            chunk->LightingComplete = true;
+        }
+    }*/
+
+    for (int az = 2; az < World_LOADING_DIAMETER - 2; az++)
+    {
+        for (int ax = 2; ax < World_LOADING_DIAMETER - 2; ax++)
+        {
+            World_Chunk* chunk = active_area.At(ax, az);
+
+            if (chunk->LightingComplete) continue;
+
+            for (int iz = 0; iz < World_CHUNK_Z_SIZE; iz++)
+            {
+                for (int ix = 0; ix < World_CHUNK_X_SIZE; ix++)
+                {
+                    {// TODO: remove later (pointlight testing)
+                        if (ix == World_CHUNK_X_SIZE / 2 && iz == World_CHUNK_Z_SIZE / 2) 
+                        {
+                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 16, iz), World_Block(World_BlockID::GLOWSTONE));
+                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 32, iz), World_Block(World_BlockID::GLOWSTONE));
+                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 48, iz), World_Block(World_BlockID::GLOWSTONE));
+                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 64, iz), World_Block(World_BlockID::GLOWSTONE));
+                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 80, iz), World_Block(World_BlockID::GLOWSTONE));
+                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 16, iz), World_LIGHT_LEVEL_14);
+                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 32, iz), World_LIGHT_LEVEL_14);
+                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 48, iz), World_LIGHT_LEVEL_14);
+                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 64, iz), World_LIGHT_LEVEL_14);
+                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 80, iz), World_LIGHT_LEVEL_14);
+                            pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 16, iz));
+                            pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 32, iz));
+                            pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 48, iz));
+                            pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 64, iz));
+                            pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 80, iz));
+                        }
+                    }
+
+                    for (int iy = World_CHUNK_Y_SIZE - 1; World_Block_IsOpaque(World_Chunk_GetBlockAt(chunk, World_LocalXYZ(ix, iy, iz))) == false; iy--)
+                    {
+                        World_Chunk_SetSunlightAt(chunk, World_LocalXYZ(ix, iy, iz), World_LIGHT_LEVEL_SUN);
+
+                        sunlight_add_queue.emplace(chunk, World_LocalXYZ(ix, iy, iz));
+                    }
+                }
+            }
+
+            World_Lighting_PropagateSunlight(sunlight_add_queue);
+
+            World_Lighting_PropagatePointlight(pointlight_add_queue); // TODO: remove later (pointlight testing)
+
+            chunk->LightingComplete = true;
+        }
+    }
+}
+
+

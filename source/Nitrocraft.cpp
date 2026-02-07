@@ -259,6 +259,10 @@ void Nitrocraft_Run()
             ImGui::Text("Z Rotation : %.2f", camera.GetFront().z);
             ImGui::Text(" ");
 
+            ImGui::Text("Sunlight Level : %02d", (int)World_ExtractSunlight(World_GetLightAt(camera.GetPosition())));
+            ImGui::Text("Pointlight Level : %02d", (int)World_ExtractPointlight(World_GetLightAt(camera.GetPosition())));
+            ImGui::Text(" ");
+
             static bool line_mode = false;
             ImGui::Checkbox(" Line Mode", &line_mode);
             if (line_mode)

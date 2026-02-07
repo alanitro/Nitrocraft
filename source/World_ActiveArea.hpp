@@ -5,6 +5,7 @@
 #include "World_Definitions.hpp"
 #include "World_Chunk.hpp"
 #include "World_TerrainGeneration.hpp"
+#include "World_Lighting.hpp"
 #include "Utility_Array2D.hpp"
 
 // World Active Area -> [0, World_LOADING_DIAMETER]^2 area of loaded chunks
@@ -28,8 +29,14 @@ void World_ActiveArea_LoadChunks(
     World_ChunkID center_chunk_id
 );
 
-void World_ActiveArea_PerformGenerationPhase(World_ActiveArea& active_area);
+void World_ActiveArea_PerformGenerationPhase(
+    World_ActiveArea& active_area
+);
 
-// void World_ActiveArea_PerformLightingPhase(World_ActiveArea& active_area);
-
-// void World_ActiveArea_PerformMeshingPhase(World_ActiveArea& active_area);
+void World_ActiveArea_PerformLightingPhase(
+    World_ActiveArea& active_area,
+    std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue,
+    std::queue<World_Lighting_LightRemovalNode>& sunlight_rem_queue,
+    std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue,
+    std::queue<World_Lighting_LightRemovalNode>& pointlight_rem_queue
+);

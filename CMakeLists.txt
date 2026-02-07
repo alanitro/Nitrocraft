@@ -20,6 +20,8 @@ add_executable(${PROJECT_NAME}
     source/World_ActiveArea.cpp
     source/World_TerrainGeneration.hpp
     source/World_TerrainGeneration.cpp
+    source/World_Lighting.hpp
+    source/World_Lighting.cpp
 
     source/Graphics_Camera.hpp
     source/Graphics_Camera.cpp

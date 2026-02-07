@@ -23,6 +23,7 @@ namespace
         float        S; // Texture coordinate (s,t)
         float        T;
         std::uint8_t F; // Face
+        std::uint8_t L; // Light
     };
 
     struct ChunkMesh
@@ -31,9 +32,6 @@ namespace
         GLuint VertexBufferID;
         GLuint IndexBufferID;
         std::uint32_t IndicesCount;
-
-        void Create();
-        void Destroy();
     };
 
     constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_BlockFace::COUNT)> BLOCK_FACES
@@ -110,11 +108,12 @@ namespace
         { TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0) }, // Oak Wood
     };
 
-    GLuint i_ShaderProgram = 0;
-    GLuint i_Texture = 0;
+    GLuint ChunkShaderProgram = 0;
+    GLuint BlocksTexture = 0;
 
-    std::vector<ChunkMesh*>                 i_ChunksToRender;
-    std::unordered_map<World_ChunkID, ChunkMesh>  i_ChunkMeshes;
+    std::vector<ChunkMesh*>                 ChunksToRender;
+    std::unordered_map<World_ChunkID, ChunkMesh> ChunkMeshes;
+
 
     void PushChunksToRender(const World_Chunk* chunk);
     void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const World_Chunk* chunk);
@@ -132,21 +131,24 @@ void WorldRenderer_Initialize()
 
 void WorldRenderer_Terminate()
 {
-    for (auto& [chunk_id, chunk_mesh] : i_ChunkMeshes)
+    for (auto& [chunk_id, chunk_mesh] : ChunkMeshes)
     {
-        chunk_mesh.Destroy();
+        glDeleteVertexArrays(1, &chunk_mesh.VertexArrayID);
+        glDeleteBuffers(1, &chunk_mesh.VertexBufferID);
+        glDeleteBuffers(1, &chunk_mesh.IndexBufferID);
+        chunk_mesh.IndicesCount = 0;
     }
 
-    glDeleteProgram(i_ShaderProgram);
+    glDeleteProgram(ChunkShaderProgram);
 
-    glDeleteTextures(1, &i_Texture);
+    glDeleteTextures(1, &BlocksTexture);
 }
 
 void WorldRenderer_Render(const Camera& camera, float sunlight_intensity, glm::vec3 sky_color)
 {
     glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
 
-    glUseProgram(i_ShaderProgram);
+    glUseProgram(ChunkShaderProgram);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -156,32 +158,30 @@ void WorldRenderer_Render(const Camera& camera, float sunlight_intensity, glm::v
     glFrontFace(GL_CCW);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, i_Texture);
-    glUniform1i(glGetUniformLocation(i_ShaderProgram, "u_Texture"), 0);
+    glBindTexture(GL_TEXTURE_2D, BlocksTexture);
+    glUniform1i(glGetUniformLocation(ChunkShaderProgram, "u_Texture"), 0);
 
     auto& model_view_projection = camera.GetViewProjection();
 
-    glUniformMatrix4fv(glGetUniformLocation(i_ShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
+    glUniformMatrix4fv(glGetUniformLocation(ChunkShaderProgram, "u_ModelViewProjection"), 1, GL_FALSE, glm::value_ptr(model_view_projection));
     
-    glUniform1f(glGetUniformLocation(i_ShaderProgram, "u_SunlightIntensity"), sunlight_intensity);
+    glUniform1f(glGetUniformLocation(ChunkShaderProgram, "u_SunlightIntensity"), sunlight_intensity);
 
-    for (auto chunk_mesh : i_ChunksToRender)
+    for (auto chunk_mesh : ChunksToRender)
     {
         glBindVertexArray(chunk_mesh->VertexArrayID);
 
         glDrawElements(GL_TRIANGLES, chunk_mesh->IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
     }
 
-    i_ChunksToRender.clear();
+    ChunksToRender.clear();
 }
 
 void WorldRenderer_PrepareChunksToRender(const World_ActiveArea& active_area)
 {
-    constexpr int diff = World_LOADING_RADIUS - World_RENDER_DISTANCE;
-
-    for (int ix = diff; ix < World_LOADING_DIAMETER - diff; ix++)
+    for (int ix = 3; ix < World_LOADING_DIAMETER - 3; ix++)
     {
-        for (int iz = diff; iz < World_LOADING_DIAMETER - diff; iz++)
+        for (int iz = 3; iz < World_LOADING_DIAMETER - 3; iz++)
         {
             PushChunksToRender(active_area.At(ix, iz));
         }
@@ -195,21 +195,13 @@ namespace // internal
         World_ChunkID chunk_id = chunk->ID;
         World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
-        if (const auto& iter = i_ChunkMeshes.find(chunk_id); iter != i_ChunkMeshes.end())
+        if (auto iter = ChunkMeshes.find(chunk_id); iter != ChunkMeshes.end())
         {
-            i_ChunksToRender.push_back(&iter->second);
+            ChunksToRender.push_back(&iter->second);
             return;
         }
 
-        auto [it, inserted] = i_ChunkMeshes.emplace(chunk_id, ChunkMesh{});
-
-        auto& mesh = it->second;
-        mesh.Create();
-
-        glBindVertexArray(mesh.VertexArrayID);
-        glBindBuffer(GL_ARRAY_BUFFER, mesh.VertexBufferID);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.IndexBufferID);
-
+        // Create temp cpu mesh
         static std::vector<ChunkMeshVertex> vertices(World_CHUNK_VOLUME * 6 * 4);
         static std::vector<std::uint32_t>   indices(World_CHUNK_VOLUME * 6 * 6);
         vertices.clear();
@@ -217,16 +209,39 @@ namespace // internal
 
         GenerateMesh(vertices, indices, chunk);
 
+        // Create gpu mesh and upload vertices and indices data
+        ChunkMesh chunk_gpu_mesh;
+        glGenVertexArrays(1, &chunk_gpu_mesh.VertexArrayID);
+        glGenBuffers(1, &chunk_gpu_mesh.VertexBufferID);
+        glGenBuffers(1, &chunk_gpu_mesh.IndexBufferID);
+
+        glBindVertexArray(chunk_gpu_mesh.VertexArrayID);
+        glBindBuffer(GL_ARRAY_BUFFER, chunk_gpu_mesh.VertexBufferID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk_gpu_mesh.IndexBufferID);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, X)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, S)));
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, F)));
+        glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, L)));
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(3);
+
+        chunk_gpu_mesh.IndicesCount = 0;
+
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkMeshVertex), vertices.data(), GL_STATIC_DRAW);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
 
-        mesh.IndicesCount = static_cast<std::uint32_t>(indices.size());
-
-        i_ChunksToRender.push_back(&mesh);
+        chunk_gpu_mesh.IndicesCount = static_cast<std::uint32_t>(indices.size());
 
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        auto res = ChunkMeshes.emplace(chunk_id, chunk_gpu_mesh);
+
+        ChunksToRender.push_back(&res.first->second);
     }
 
     void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const World_Chunk* chunk)
@@ -240,34 +255,34 @@ namespace // internal
                 for (int y = 0; y < World_CHUNK_Y_SIZE; y++)
                 {
                     // Block face detection
-                    World_Block block = World_Chunk_GetBlockAt(chunk, { x, y, z });
+                    World_Block block = World_Chunk_GetBlockAt(chunk, World_LocalXYZ(x, y, z));
 
                     if (block.ID == World_BlockID::AIR) continue;
 
-                    auto neighbour_blocks = World_Chunk_GetNeighbourBlocks(chunk, { x, y, z });
+                    auto neighbour_blocks = World_Chunk_GetNeighbourBlocksAt(chunk, World_LocalXYZ(x, y, z));
 
                     std::uint32_t blockface_bitmask = 0;
 
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::XN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::XN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::XP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::XP);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::YN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::YN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::YP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::YP);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::ZN)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::ZN);
-                    if (World_Block_IsTransparent(neighbour_blocks[static_cast<int>(World_BlockFace::ZP)])) blockface_bitmask |= static_cast<std::uint32_t>(World_BlockFaceBit::ZP);
+                    for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
+                    {
+                        if (World_Block_IsTransparent(neighbour_blocks[face])) blockface_bitmask |= (1u << (std::uint32_t)face);
+                    }
 
                     if (blockface_bitmask == 0) continue;
 
                     // Chunk Mesh generation
                     World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(x, y, z);
 
-                    for (int face = static_cast<int>(World_BlockFace::XN); face <= static_cast<int>(World_BlockFace::ZP); face++)
+                    auto neighbour_lights = World_Chunk_GetNeighbourLightsAt(chunk, World_LocalXYZ(x, y, z));
+
+                    for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
                     {
                         if (!(blockface_bitmask & (1u << face))) continue;
 
                         // Populate vertices 
-                        const std::array<float, 12>& block_face = BLOCK_FACES[face];
+                        const auto& block_face = BLOCK_FACES[(std::size_t)face];
 
-                        glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[static_cast<int>(block.ID)][static_cast<int>(face)];
+                        glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
 
                         for (int i = 0; i < 4; i++)
                         {
@@ -276,14 +291,13 @@ namespace // internal
                             constexpr float w = 1.0f / 16.0f;
 
                             vertices.emplace_back(
-                                ChunkMeshVertex(
-                                    block_face[vertex_base + 0] + block_offset.x,
-                                    block_face[vertex_base + 1] + block_offset.y,
-                                    block_face[vertex_base + 2] + block_offset.z,
-                                    tile_map_offset.x + ((i == 1 || i == 2) ? w : 0.0f),
-                                    tile_map_offset.y + ((i == 2 || i == 3) ? w : 0.0f),
-                                    static_cast<std::uint8_t>(face)
-                                )
+                                block_face[vertex_base + 0] + block_offset.x,
+                                block_face[vertex_base + 1] + block_offset.y,
+                                block_face[vertex_base + 2] + block_offset.z,
+                                tile_map_offset.x + ((i == 1 || i == 2) ? w : 0.0f),
+                                tile_map_offset.y + ((i == 2 || i == 3) ? w : 0.0f),
+                                static_cast<std::uint8_t>(face),
+                                static_cast<std::uint8_t>(neighbour_lights[face])
                             );
                         }
 
@@ -368,7 +382,7 @@ namespace // internal
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
 
-        i_ShaderProgram = program;
+        ChunkShaderProgram = program;
     }
 
     void LoadTexture()
@@ -399,34 +413,6 @@ namespace // internal
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        i_Texture = texture;
-    }
-
-    void ChunkMesh::Create()
-    {
-        glGenVertexArrays(1, &VertexArrayID);
-        glGenBuffers(1, &VertexBufferID);
-        glGenBuffers(1, &IndexBufferID);
-
-        glBindVertexArray(VertexArrayID);
-        glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, X)));
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, S)));
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, F)));
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-
-        IndicesCount = 0;
-    }
-
-    void ChunkMesh::Destroy()
-    {
-        glDeleteVertexArrays(1, &VertexArrayID);
-        glDeleteBuffers(1, &VertexBufferID);
-        glDeleteBuffers(1, &IndexBufferID);
-        IndicesCount = 0;
+        BlocksTexture = texture;
     }
 } // !namespace internal

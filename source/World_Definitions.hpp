@@ -42,16 +42,6 @@ enum class World_BlockFace
     COUNT = 6,
 };
 
-enum class World_BlockFaceBit : std::uint32_t
-{
-    XN = (1u << static_cast<std::uint32_t>(World_BlockFace::XN)),
-    XP = (1u << static_cast<std::uint32_t>(World_BlockFace::XP)),
-    YN = (1u << static_cast<std::uint32_t>(World_BlockFace::YN)),
-    YP = (1u << static_cast<std::uint32_t>(World_BlockFace::YP)),
-    ZN = (1u << static_cast<std::uint32_t>(World_BlockFace::ZN)),
-    ZP = (1u << static_cast<std::uint32_t>(World_BlockFace::ZP)),
-};
-
 // Coordinates (Right handed coordinate)
 using World_Position  = glm::vec3;  // World relative position
 using World_GlobalXYZ = glm::ivec3; // World relative position
@@ -61,7 +51,7 @@ using World_ChunkID   = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x c
 // World Constants
 constexpr int World_HEIGHT          = 256;
 constexpr int World_SEA_LEVEL       = 64;
-constexpr int World_RENDER_DISTANCE = 10; // Render radius in Chunk unit
+constexpr int World_RENDER_DISTANCE = 6; // Render radius in Chunk unit
 
 // Loading Constants
 constexpr int World_LOADING_RADIUS      = World_RENDER_DISTANCE + 3;
