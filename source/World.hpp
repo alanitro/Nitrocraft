@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+#include <optional>
 #include "World_Definitions.hpp"
 #include "World_ActiveArea.hpp"
 #include "World_Block.hpp"
@@ -21,3 +23,5 @@ World_Light             World_GetLightAt(World_GlobalXYZ global);
 const World_Chunk*      World_GetChunkAt(World_GlobalXYZ global);
 
 const World_ActiveArea& World_GetActiveArea();
+
+std::optional<std::pair<World_GlobalXYZ, World_BlockFace>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length);

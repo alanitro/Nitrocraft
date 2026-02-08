@@ -19,8 +19,8 @@ cmake --build ./build --config [Release|Debug]
 - [x] Spaghetti/Cheese cave generation
 - [ ] Block place/remove
 - [ ] Collision detection
-- [ ] Flood fill lighting
-- [ ] Day/Night cycle
+- [x] Flood fill lighting
+- [x] Day/Night cycle
 - [ ] Frustum culling
 - [ ] Ambient occlusion
 - [ ] Basic GUI
@@ -41,3 +41,5 @@ cmake --build ./build --config [Release|Debug]
 - Voxel lighting:\
 <https://www.reddit.com/r/gamedev/comments/2iru8i/fast_flood_fill_lighting_in_a_blocky_voxel_game/>\
 <https://www.reddit.com/r/gamedev/comments/2k7gxt/fast_flood_fill_lighting_in_a_blocky_voxel_game/>
+- Voxel raycasting:\
+<https://gamedev.stackexchange.com/questions/47362/cast-ray-to-select-block-in-voxel-game>

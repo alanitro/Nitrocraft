@@ -6,6 +6,7 @@ namespace
     {
         "Air",
         "Stone",
+        "Bedrock",
         "Dirt",
         "Grass",
         "Sand",

@@ -263,6 +263,17 @@ void Nitrocraft_Run()
             ImGui::Text("Pointlight Level : %02d", (int)World_ExtractPointlight(World_GetLightAt(camera.GetPosition())));
             ImGui::Text(" ");
 
+            auto raycast_result = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
+            ImGui::Text(
+                "Selected Block: %s",
+                raycast_result.has_value() ? std::string( World_Block_GetBlockName(World_GetBlockAt(raycast_result.value().first).ID)).c_str() : "None"
+            );
+            ImGui::Text(
+                "Selected Face: %s",
+                raycast_result.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (int)raycast_result.value().second * 3 : "None"
+            );
+            ImGui::Text(" ");
+
             static bool line_mode = false;
             ImGui::Checkbox(" Line Mode", &line_mode);
             if (line_mode)
