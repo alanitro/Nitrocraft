@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <array>
 #include "World_Definitions.hpp"
 #include "World_Block.hpp"
 #include "Utility_Array2D.hpp"
@@ -18,41 +19,48 @@ struct World_Chunk_Payload
     World_Chunk_HeightData Heights;
 };
 
+enum class World_Chunk_Neighbour
+{
+    XNZ0,
+    XPZ0,
+    X0ZN,
+    X0ZP,
+    XNZN,
+    XPZN,
+    XNZP,
+    XPZP,
+
+    COUNT,
+};
+
 struct World_Chunk
 {
     const World_ChunkID   ID;
 
-    bool            GenerationComplete  = false;
-    bool            LightingComplete    = false;
-    bool            HasModified         = false;
-    bool            NeighboursSet       = false;
+    bool GenerationComplete = false;
+    bool LightingComplete = false;
+    bool HasModified = false;
+    bool NeighboursSet = false;
 
-    World_Chunk*    NeighbourXNZ0 = nullptr;
-    World_Chunk*    NeighbourXPZ0 = nullptr;
-    World_Chunk*    NeighbourX0ZN = nullptr;
-    World_Chunk*    NeighbourX0ZP = nullptr;
-    World_Chunk*    NeighbourXNZN = nullptr;
-    World_Chunk*    NeighbourXPZN = nullptr;
-    World_Chunk*    NeighbourXNZP = nullptr;
-    World_Chunk*    NeighbourXPZP = nullptr;
+    std::array<World_Chunk*, (std::size_t)World_Chunk_Neighbour::COUNT> Neighbours{};
 
     std::unique_ptr<World_Chunk_Payload> Payload;
 
-    World_Chunk(World_ChunkID id) : ID{ id } {}
+    explicit World_Chunk(World_ChunkID id) : ID{ id } {}
+
+    World_Block GetBlockAt(World_LocalXYZ local) const;
+    World_Light GetLightAt(World_LocalXYZ local) const;
+    World_Light GetSunlightAt(World_LocalXYZ local) const;
+    World_Light GetPointlightAt(World_LocalXYZ local) const;
+
+    void SetBlockAt(World_LocalXYZ local, World_Block block);
+    void SetLightAt(World_LocalXYZ local, World_Light sunlight, World_Light pointlight);
+    void SetSunlightAt(World_LocalXYZ local, World_Light sunlight);
+    void SetPointlightAt(World_LocalXYZ local, World_Light pointlight);
+
+    int  GetHeightAt(int local_x, int local_z);
+    void SetHeightAt(int local_x, int local_z, std::uint8_t height);
+
+    std::array<World_Block, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> GetNeighbourBlocksAt(World_LocalXYZ local) const;
+    std::array<World_Light, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> GetNeighbourLightsAt(World_LocalXYZ local) const;
 };
-
-World_Block World_Chunk_GetBlockAt(const World_Chunk* self, World_LocalXYZ local);
-World_Light World_Chunk_GetLightAt(const World_Chunk* self, World_LocalXYZ local);
-World_Light World_Chunk_GetSunlightAt(const World_Chunk* self, World_LocalXYZ local);
-World_Light World_Chunk_GetPointlightAt(const World_Chunk* self, World_LocalXYZ local);
-
-void World_Chunk_SetBlockAt(World_Chunk* self, World_LocalXYZ local, World_Block block);
-void World_Chunk_SetLightAt(World_Chunk* self, World_LocalXYZ local, World_Light sunlight, World_Light pointlight);
-void World_Chunk_SetSunlightAt(World_Chunk* self, World_LocalXYZ local, World_Light sunlight);
-void World_Chunk_SetPointlightAt(World_Chunk* self, World_LocalXYZ local, World_Light pointlight);
-
-int World_Chunk_GetHeightAt(const World_Chunk* self, int local_x, int local_z);
-void World_Chunk_SetHeightAt(World_Chunk* self, int local_x, int local_z, std::uint8_t height);
-
-std::array<World_Block, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> World_Chunk_GetNeighbourBlocksAt(const World_Chunk* self, World_LocalXYZ local);
-std::array<World_Light, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> World_Chunk_GetNeighbourLightsAt(const World_Chunk* self, World_LocalXYZ local);

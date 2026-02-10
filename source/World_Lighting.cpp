@@ -11,11 +11,11 @@ namespace
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
-        if (World_Block_IsOpaque(World_Chunk_GetBlockAt(chunk, candidate))) return;
+        if (chunk->GetBlockAt(candidate).IsOpaque()) return;
 
-        if (World_Chunk_GetSunlightAt(chunk, candidate) + World_LIGHT_LEVEL_02 > source_light) return;
+        if (chunk->GetSunlightAt(candidate) + World_LIGHT_LEVEL_02 > source_light) return;
 
-        World_Chunk_SetSunlightAt(chunk, candidate, source_light - World_LIGHT_LEVEL_01);
+        chunk->SetSunlightAt(candidate, source_light - World_LIGHT_LEVEL_01);
 
         sunlight_add_queue.emplace(chunk, candidate);
     }
@@ -26,11 +26,11 @@ namespace
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
-        World_Light candidate_light = World_Chunk_GetSunlightAt(chunk, candidate);
+        World_Light candidate_light = chunk->GetSunlightAt(candidate);
 
         if (candidate_light != World_LIGHT_LEVEL_MIN && candidate_light < source_light)
         {
-            World_Chunk_SetSunlightAt(chunk, candidate, World_LIGHT_LEVEL_MIN);
+            chunk->SetSunlightAt(candidate, World_LIGHT_LEVEL_MIN);
 
             sunlight_rem_queue.emplace(chunk, candidate, candidate_light);
         }
@@ -45,11 +45,11 @@ namespace
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
-        if (World_Block_IsOpaque(World_Chunk_GetBlockAt(chunk, candidate))) return;
+        if (chunk->GetBlockAt(candidate).IsOpaque()) return;
 
-        if (World_Chunk_GetPointlightAt(chunk, candidate) + World_LIGHT_LEVEL_02 > source_light) return;
+        if (chunk->GetPointlightAt(candidate) + World_LIGHT_LEVEL_02 > source_light) return;
 
-        World_Chunk_SetPointlightAt(chunk, candidate, source_light - World_LIGHT_LEVEL_01);
+        chunk->SetPointlightAt(candidate, source_light - World_LIGHT_LEVEL_01);
 
         pointlight_add_queue.emplace(chunk, candidate);
     }
@@ -60,11 +60,11 @@ namespace
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
-        World_Light candidate_light = World_Chunk_GetPointlightAt(chunk, candidate);
+        World_Light candidate_light = chunk->GetPointlightAt(candidate);
 
         if (candidate_light != World_LIGHT_LEVEL_MIN && candidate_light < source_light)
         {
-            World_Chunk_SetPointlightAt(chunk, candidate, World_LIGHT_LEVEL_MIN);
+            chunk->SetPointlightAt(candidate, World_LIGHT_LEVEL_MIN);
 
             pointlight_rem_queue.emplace(chunk, candidate, candidate_light);
         }
@@ -86,12 +86,12 @@ void World_Lighting_PropagateSunlight(std::queue<World_Lighting_LightAdditionNod
         int& ly = node.Local.y;
         int& lz = node.Local.z;
 
-        World_Light light = World_Chunk_GetSunlightAt(chunk, World_LocalXYZ(lx, ly, lz));
+        World_Light light = chunk->GetSunlightAt(World_LocalXYZ(lx, ly, lz));
 
-        World_Chunk* cxn = chunk->NeighbourXNZ0;
-        World_Chunk* cxp = chunk->NeighbourXPZ0;
-        World_Chunk* czn = chunk->NeighbourX0ZN;
-        World_Chunk* czp = chunk->NeighbourX0ZP;
+        World_Chunk* cxn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0];
+        World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
+        World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
+        World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
 
         chunk->HasModified = true;
 
@@ -110,11 +110,11 @@ void World_Lighting_PropagateSunlight(std::queue<World_Lighting_LightAdditionNod
         // Propagate YN
         if (
             ly != 0 &&
-            World_Block_IsTransparent(World_Chunk_GetBlockAt(chunk, World_LocalXYZ(lx, ly - 1, lz))) &&
-            World_Chunk_GetSunlightAt(chunk, World_LocalXYZ(lx, ly - 1, lz)) + World_LIGHT_LEVEL_02 <= light
+            chunk->GetBlockAt(World_LocalXYZ(lx, ly - 1, lz)).IsTransparent() &&
+            chunk->GetSunlightAt(World_LocalXYZ(lx, ly - 1, lz)) + World_LIGHT_LEVEL_02 <= light
         )
         {
-            World_Chunk_SetSunlightAt(chunk, World_LocalXYZ(lx, ly - 1, lz), (light == World_LIGHT_LEVEL_SUN) ? World_LIGHT_LEVEL_SUN : light - World_LIGHT_LEVEL_01);
+            chunk->SetSunlightAt(World_LocalXYZ(lx, ly - 1, lz), (light == World_LIGHT_LEVEL_SUN) ? World_LIGHT_LEVEL_SUN : light - World_LIGHT_LEVEL_01);
 
             sunlight_add_queue.emplace(chunk, World_LocalXYZ(lx, ly - 1, lz));
         }
@@ -152,10 +152,10 @@ void World_Lighting_UnpropagateSunlight(
         int& lz = node.Local.z;
         World_Light& light = node.Light;
 
-        World_Chunk* cxn = chunk->NeighbourXNZ0;
-        World_Chunk* cxp = chunk->NeighbourXPZ0;
-        World_Chunk* czn = chunk->NeighbourX0ZN;
-        World_Chunk* czp = chunk->NeighbourX0ZP;
+        World_Chunk* cxn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0];
+        World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
+        World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
+        World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
 
         chunk->HasModified = true;
 
@@ -174,19 +174,19 @@ void World_Lighting_UnpropagateSunlight(
         // Unpropagate YN
         if (ly != 0)
         {
-            const World_Light yn_light = World_Chunk_GetSunlightAt(chunk, World_LocalXYZ(lx, ly - 1, lz));
+            const World_Light yn_light = chunk->GetSunlightAt(World_LocalXYZ(lx, ly - 1, lz));
 
             const World_LocalXYZ yn_local = World_LocalXYZ(lx, ly - 1, lz);
 
             if (yn_light == World_LIGHT_LEVEL_SUN)
             {
-                World_Chunk_SetSunlightAt(chunk, yn_local, World_LIGHT_LEVEL_MIN);
+                chunk->SetSunlightAt(yn_local, World_LIGHT_LEVEL_MIN);
 
                 sunlight_rem_queue.emplace(chunk, yn_local, World_LIGHT_LEVEL_SUN);
             }
             else if (yn_light != World_LIGHT_LEVEL_MIN && yn_light < light)
             {
-                World_Chunk_SetSunlightAt(chunk, yn_local, World_LIGHT_LEVEL_MIN);
+                chunk->SetSunlightAt(yn_local, World_LIGHT_LEVEL_MIN);
 
                 sunlight_rem_queue.emplace(chunk, yn_local, yn_light);
             }
@@ -228,12 +228,12 @@ void World_Lighting_PropagatePointlight(std::queue<World_Lighting_LightAdditionN
         int& ly = node.Local.y;
         int& lz = node.Local.z;
 
-        World_Light light = World_Chunk_GetPointlightAt(chunk, World_LocalXYZ(lx, ly, lz));
+        World_Light light = chunk->GetPointlightAt(World_LocalXYZ(lx, ly, lz));
 
-        World_Chunk* cxn = chunk->NeighbourXNZ0;
-        World_Chunk* cxp = chunk->NeighbourXPZ0;
-        World_Chunk* czn = chunk->NeighbourX0ZN;
-        World_Chunk* czp = chunk->NeighbourX0ZP;
+        World_Chunk* cxn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0];
+        World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
+        World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
+        World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
 
         chunk->HasModified = true;
 
@@ -286,10 +286,10 @@ void World_Lighting_UnpropagatePointlight(
         int& ly = node.Local.y;
         int& lz = node.Local.z;
 
-        World_Chunk* cxn = chunk->NeighbourXNZ0;
-        World_Chunk* cxp = chunk->NeighbourXPZ0;
-        World_Chunk* czn = chunk->NeighbourX0ZN;
-        World_Chunk* czp = chunk->NeighbourX0ZP;
+        World_Chunk* cxn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0];
+        World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
+        World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
+        World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
 
         chunk->HasModified = true;
 

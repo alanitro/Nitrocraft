@@ -266,7 +266,7 @@ void Nitrocraft_Run()
             auto raycast_result = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
             ImGui::Text(
                 "Selected Block: %s",
-                raycast_result.has_value() ? std::string( World_Block_GetBlockName(World_GetBlockAt(raycast_result.value().first).ID)).c_str() : "None"
+                raycast_result.has_value() ? std::string(World_GetBlockAt(raycast_result.value().first).GetBlockName()).c_str() : "None"
             );
             ImGui::Text(
                 "Selected Face: %s",

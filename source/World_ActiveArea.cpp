@@ -47,14 +47,14 @@ void World_ActiveArea_LoadChunks(
 
             if (chunk->NeighboursSet) continue;
 
-            chunk->NeighbourXNZ0 = active_area.At(ix - 1, iz);
-            chunk->NeighbourXPZ0 = active_area.At(ix + 1, iz);
-            chunk->NeighbourX0ZN = active_area.At(ix, iz - 1);
-            chunk->NeighbourX0ZP = active_area.At(ix, iz + 1);
-            chunk->NeighbourXNZN = active_area.At(ix - 1, iz - 1);
-            chunk->NeighbourXPZN = active_area.At(ix + 1, iz - 1);
-            chunk->NeighbourXNZP = active_area.At(ix - 1, iz + 1);
-            chunk->NeighbourXPZP = active_area.At(ix + 1, iz + 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0] = active_area.At(ix - 1, iz);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0] = active_area.At(ix + 1, iz);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN] = active_area.At(ix, iz - 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP] = active_area.At(ix, iz + 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZN] = active_area.At(ix - 1, iz - 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZN] = active_area.At(ix + 1, iz - 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZP] = active_area.At(ix - 1, iz + 1);
+            chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZP] = active_area.At(ix + 1, iz + 1);
 
             chunk->NeighboursSet = true;
         }
@@ -136,16 +136,16 @@ void World_ActiveArea_PerformLightingPhase(
                     {// TODO: remove later (pointlight testing)
                         if (ix == World_CHUNK_X_SIZE / 2 && iz == World_CHUNK_Z_SIZE / 2) 
                         {
-                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 16, iz), World_Block(World_BlockID::GLOWSTONE));
-                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 32, iz), World_Block(World_BlockID::GLOWSTONE));
-                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 48, iz), World_Block(World_BlockID::GLOWSTONE));
-                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 64, iz), World_Block(World_BlockID::GLOWSTONE));
-                            World_Chunk_SetBlockAt(chunk, World_LocalXYZ(ix, 80, iz), World_Block(World_BlockID::GLOWSTONE));
-                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 16, iz), World_LIGHT_LEVEL_14);
-                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 32, iz), World_LIGHT_LEVEL_14);
-                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 48, iz), World_LIGHT_LEVEL_14);
-                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 64, iz), World_LIGHT_LEVEL_14);
-                            World_Chunk_SetPointlightAt(chunk, World_LocalXYZ(ix, 80, iz), World_LIGHT_LEVEL_14);
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 16, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 32, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 48, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 64, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 80, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetPointlightAt(World_LocalXYZ(ix, 16, iz), World_LIGHT_LEVEL_14);
+                            chunk->SetPointlightAt(World_LocalXYZ(ix, 32, iz), World_LIGHT_LEVEL_14);
+                            chunk->SetPointlightAt(World_LocalXYZ(ix, 48, iz), World_LIGHT_LEVEL_14);
+                            chunk->SetPointlightAt(World_LocalXYZ(ix, 64, iz), World_LIGHT_LEVEL_14);
+                            chunk->SetPointlightAt(World_LocalXYZ(ix, 80, iz), World_LIGHT_LEVEL_14);
                             pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 16, iz));
                             pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 32, iz));
                             pointlight_add_queue.emplace(chunk, World_LocalXYZ(ix, 48, iz));
@@ -154,9 +154,9 @@ void World_ActiveArea_PerformLightingPhase(
                         }
                     }
 
-                    for (int iy = World_CHUNK_Y_SIZE - 1; World_Block_IsOpaque(World_Chunk_GetBlockAt(chunk, World_LocalXYZ(ix, iy, iz))) == false; iy--)
+                    for (int iy = World_CHUNK_Y_SIZE - 1; chunk->GetBlockAt(World_LocalXYZ(ix, iy, iz)).IsOpaque() == false; iy--)
                     {
-                        World_Chunk_SetSunlightAt(chunk, World_LocalXYZ(ix, iy, iz), World_LIGHT_LEVEL_SUN);
+                        chunk->SetSunlightAt(World_LocalXYZ(ix, iy, iz), World_LIGHT_LEVEL_SUN);
 
                         sunlight_add_queue.emplace(chunk, World_LocalXYZ(ix, iy, iz));
                     }

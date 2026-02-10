@@ -255,17 +255,17 @@ namespace // internal
                 for (int y = 0; y < World_CHUNK_Y_SIZE; y++)
                 {
                     // Block face detection
-                    World_Block block = World_Chunk_GetBlockAt(chunk, World_LocalXYZ(x, y, z));
+                    World_Block block = chunk->GetBlockAt(World_LocalXYZ(x, y, z));
 
                     if (block.ID == World_BlockID::AIR) continue;
 
-                    auto neighbour_blocks = World_Chunk_GetNeighbourBlocksAt(chunk, World_LocalXYZ(x, y, z));
+                    auto neighbour_blocks = chunk->GetNeighbourBlocksAt(World_LocalXYZ(x, y, z));
 
                     std::uint32_t blockface_bitmask = 0;
 
                     for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
                     {
-                        if (World_Block_IsTransparent(neighbour_blocks[face])) blockface_bitmask |= (1u << (std::uint32_t)face);
+                        if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
                     }
 
                     if (blockface_bitmask == 0) continue;
@@ -273,7 +273,7 @@ namespace // internal
                     // Chunk Mesh generation
                     World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(x, y, z);
 
-                    auto neighbour_lights = World_Chunk_GetNeighbourLightsAt(chunk, World_LocalXYZ(x, y, z));
+                    auto neighbour_lights = chunk->GetNeighbourLightsAt(World_LocalXYZ(x, y, z));
 
                     for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
                     {

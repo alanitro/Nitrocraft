@@ -74,7 +74,7 @@ World_Block World_GetBlockAt(World_GlobalXYZ global)
 
     if (chunk == nullptr) return World_Block{ World_BlockID::AIR };
 
-    return World_Chunk_GetBlockAt(chunk, World_FromGlobalToLocal(global));
+    return chunk->GetBlockAt(World_FromGlobalToLocal(global));
 }
 
 World_Light World_GetLightAt(World_GlobalXYZ global)
@@ -83,7 +83,7 @@ World_Light World_GetLightAt(World_GlobalXYZ global)
 
     if (chunk == nullptr) return World_LIGHT_LEVEL_MIN;
 
-    return World_Chunk_GetLightAt(chunk, World_FromGlobalToLocal(global));
+    return chunk->GetLightAt(World_FromGlobalToLocal(global));
 }
 
 const World_Chunk* World_GetChunkAt(World_GlobalXYZ global)
@@ -108,7 +108,7 @@ std::optional<std::pair<World_GlobalXYZ, World_BlockFace>> World_CastRay(glm::ve
 
     if (ray_origin.y < 0.0f || ray_origin.y >= static_cast<float>(World_HEIGHT)) return std::nullopt;
 
-    if (World_Block_IsNotEqual(World_GetBlockAt(World_GlobalXYZ(ray_origin)), World_Block(World_BlockID::AIR))) return std::nullopt;
+    if (World_GetBlockAt(World_GlobalXYZ(ray_origin)) != World_Block(World_BlockID::AIR)) return std::nullopt;
 
     World_GlobalXYZ current_voxel_position = World_GlobalXYZ(glm::floor(ray_origin));
 

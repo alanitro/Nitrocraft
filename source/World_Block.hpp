@@ -8,26 +8,26 @@
 struct World_Block
 {
     World_BlockID ID;
+
+    bool operator==(World_Block rhs) const
+    {
+        return ID == rhs.ID;
+    }
+
+    bool operator!=(World_Block rhs) const
+    {
+        return ID != rhs.ID;
+    }
+
+    bool IsOpaque() const
+    {
+        return ID != World_BlockID::AIR && ID != World_BlockID::OAK_LEAVES;
+    }
+
+    bool IsTransparent() const
+    {
+        return ID == World_BlockID::AIR || ID == World_BlockID::OAK_LEAVES;
+    }
+
+    std::string_view GetBlockName();
 };
-
-constexpr bool World_Block_IsEqual(World_Block block1, World_Block  block2)
-{
-    return block1.ID == block2.ID;
-}
-
-constexpr bool World_Block_IsNotEqual(World_Block block1, World_Block  block2)
-{
-    return block1.ID != block2.ID;
-}
-
-constexpr bool World_Block_IsOpaque(World_Block self)
-{
-    return self.ID != World_BlockID::AIR && self.ID != World_BlockID::OAK_LEAVES;
-}
-
-constexpr bool World_Block_IsTransparent(World_Block self)
-{
-    return self.ID == World_BlockID::AIR || self.ID == World_BlockID::OAK_LEAVES;
-}
-
-std::string_view World_Block_GetBlockName(World_BlockID block_id);
