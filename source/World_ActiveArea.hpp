@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "World_Definitions.hpp"
 #include "World_Chunk.hpp"
-#include "World_TerrainGeneration.hpp"
+#include "World_Generation.hpp"
 #include "World_Lighting.hpp"
 #include "Utility_Array2D.hpp"
 

@@ -6,7 +6,7 @@
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
 #include "World_ActiveArea.hpp"
-#include "World_TerrainGeneration.hpp"
+#include "World_Generation.hpp"
 #include "Utility_Time.hpp"
 
 namespace
@@ -23,7 +23,7 @@ namespace
 
 void World_Initialize()
 {
-    World_TerrainGeneration_Initialize(12345);
+    World_Generation_Initialize(12345);
 
     World_ActiveArea_LoadChunks(ActiveArea, ChunkMap, World_LocalXYZ(0, 0, 0));
 

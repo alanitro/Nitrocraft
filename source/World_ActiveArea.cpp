@@ -71,7 +71,7 @@ void World_ActiveArea_PerformGenerationPhase(World_ActiveArea& active_area)
 
             if (chunk->GenerationComplete) continue;
 
-            World_TerrainGeneration_GenerateChunk(chunk);
+            World_Generation_GenerateChunk(chunk);
 
             chunk->GenerationComplete = true;
         }

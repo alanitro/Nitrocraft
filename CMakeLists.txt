@@ -18,8 +18,8 @@ add_executable(${PROJECT_NAME}
     source/World_Chunk.cpp
     source/World_ActiveArea.hpp
     source/World_ActiveArea.cpp
-    source/World_TerrainGeneration.hpp
-    source/World_TerrainGeneration.cpp
+    source/World_Generation.hpp
+    source/World_Generation.cpp
     source/World_Lighting.hpp
     source/World_Lighting.cpp
 

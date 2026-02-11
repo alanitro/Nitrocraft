@@ -1,4 +1,4 @@
-#include "World_TerrainGeneration.hpp"
+#include "World_Generation.hpp"
 
 #include <algorithm>
 #include <FastNoise/FastNoise.h>
@@ -74,7 +74,7 @@ namespace
     }
 }
 
-void World_TerrainGeneration_Initialize(int generation_seed)
+void World_Generation_Initialize(int generation_seed)
 {
     GenerationSeed = generation_seed;
 
@@ -128,7 +128,7 @@ void World_TerrainGeneration_Initialize(int generation_seed)
     }
 }
 
-void World_TerrainGeneration_GenerateChunk(World_Chunk* chunk)
+void World_Generation_GenerateChunk(World_Chunk* chunk)
 {
     auto chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
