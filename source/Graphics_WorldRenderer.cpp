@@ -8,25 +8,15 @@
 #include <glad/gl.h>
 #include "Utility_IO.hpp"
 #include "Graphics_Camera.hpp"
-#include "World_Definitions.hpp"
+#include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
+#include "World_Mesh.hpp"
 #include "Utility_Time.hpp"
 
 namespace
 {
-    struct ChunkMeshVertex
-    {
-        float        X; // Vertex position (x,y,z)
-        float        Y;
-        float        Z;
-        float        S; // Texture coordinate (s,t)
-        float        T;
-        std::uint8_t F; // Face
-        std::uint8_t L; // Light
-    };
-
-    struct ChunkMesh
+    struct ChunkGPUMesh
     {
         GLuint VertexArrayID;
         GLuint VertexBufferID;
@@ -34,89 +24,14 @@ namespace
         std::uint32_t IndicesCount;
     };
 
-    constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_BlockFace::COUNT)> BLOCK_FACES
-    {
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            1.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 1.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 1.0f,
-            0.0f, 0.0f, 1.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-        },
-        std::array<float, 12>
-        {
-            0.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-        },
-    };
-
-    // Tilemap index
-    consteval glm::vec2 TI(int s, int t)
-    {
-        constexpr float w = 1.0f / 16.0f;
-
-        return glm::vec2
-        (
-            static_cast<float>(s) * w,
-            static_cast<float>(t) * w
-        );
-    }
-
-    constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(World_BlockID::COUNT)][static_cast<int>(World_BlockFace::COUNT)]
-    {
-        { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
-        { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
-        { TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0),  TI(2,0)  }, // Bedrock
-        { TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0),  TI(3,0)  }, // Dirt
-        { TI(4,1),  TI(4,1),  TI(4,0),  TI(4,2),  TI(4,1),  TI(4,1)  }, // Grass
-        { TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0),  TI(5,0)  }, // Sand
-        { TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0),  TI(6,0)  }, // Snow
-        { TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0),  TI(7,0)  }, // Brick
-        { TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0),  TI(8,0)  }, // Glowstone
-        { TI(9,1),  TI(9,1),  TI(9,0),  TI(9,2),  TI(9,1),  TI(9,1)  }, // Oak
-        { TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0), TI(10,0) }, // Oak Leaves
-        { TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0), TI(11,0) }, // Oak Wood
-    };
-
     GLuint ChunkShaderProgram = 0;
     GLuint BlocksTexture = 0;
 
-    std::vector<ChunkMesh*>                 ChunksToRender;
-    std::unordered_map<World_ChunkID, ChunkMesh> ChunkMeshes;
+    std::vector<ChunkGPUMesh*>                      ChunksToRender;
+    std::unordered_map<World_ChunkID, ChunkGPUMesh> ChunkMeshes;
 
 
     void PushChunksToRender(const World_Chunk* chunk);
-    void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const World_Chunk* chunk);
     void LoadShaderProgram();
     void LoadTexture();
 
@@ -202,15 +117,15 @@ namespace // internal
         }
 
         // Create temp cpu mesh
-        static std::vector<ChunkMeshVertex> vertices(World_CHUNK_VOLUME * 6 * 4);
+        static std::vector<World_Mesh_ChunkCPUMeshVertex> vertices(World_CHUNK_VOLUME * 6 * 4);
         static std::vector<std::uint32_t>   indices(World_CHUNK_VOLUME * 6 * 6);
         vertices.clear();
         indices.clear();
 
-        GenerateMesh(vertices, indices, chunk);
+        World_Mesh_GenerateChunkCPUMesh(chunk, vertices, indices);
 
         // Create gpu mesh and upload vertices and indices data
-        ChunkMesh chunk_gpu_mesh;
+        ChunkGPUMesh chunk_gpu_mesh;
         glGenVertexArrays(1, &chunk_gpu_mesh.VertexArrayID);
         glGenBuffers(1, &chunk_gpu_mesh.VertexBufferID);
         glGenBuffers(1, &chunk_gpu_mesh.IndexBufferID);
@@ -219,10 +134,10 @@ namespace // internal
         glBindBuffer(GL_ARRAY_BUFFER, chunk_gpu_mesh.VertexBufferID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk_gpu_mesh.IndexBufferID);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, X)));
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, S)));
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, F)));
-        glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(ChunkMeshVertex), reinterpret_cast<const void*>(offsetof(ChunkMeshVertex, L)));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, X)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, S)));
+        glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, F)));
+        glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, L)));
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
@@ -230,7 +145,7 @@ namespace // internal
 
         chunk_gpu_mesh.IndicesCount = 0;
 
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ChunkMeshVertex), vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(World_Mesh_ChunkCPUMeshVertex), vertices.data(), GL_STATIC_DRAW);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
 
         chunk_gpu_mesh.IndicesCount = static_cast<std::uint32_t>(indices.size());
@@ -242,77 +157,6 @@ namespace // internal
         auto res = ChunkMeshes.emplace(chunk_id, chunk_gpu_mesh);
 
         ChunksToRender.push_back(&res.first->second);
-    }
-
-    void GenerateMesh(std::vector<ChunkMeshVertex>& vertices, std::vector<std::uint32_t>& indices, const World_Chunk* chunk)
-    {
-        World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
-
-        for (int z = 0; z < World_CHUNK_Z_SIZE; z++)
-        {
-            for (int x = 0; x < World_CHUNK_X_SIZE; x++)
-            {
-                for (int y = 0; y < World_CHUNK_Y_SIZE; y++)
-                {
-                    // Block face detection
-                    World_Block block = chunk->GetBlockAt(World_LocalXYZ(x, y, z));
-
-                    if (block.ID == World_BlockID::AIR) continue;
-
-                    auto neighbour_blocks = chunk->GetNeighbourBlocksAt(World_LocalXYZ(x, y, z));
-
-                    std::uint32_t blockface_bitmask = 0;
-
-                    for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
-                    {
-                        if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
-                    }
-
-                    if (blockface_bitmask == 0) continue;
-
-                    // Chunk Mesh generation
-                    World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(x, y, z);
-
-                    auto neighbour_lights = chunk->GetNeighbourLightsAt(World_LocalXYZ(x, y, z));
-
-                    for (std::size_t face = (std::size_t)World_BlockFace::XN; face <= (std::size_t)World_BlockFace::ZP; face++)
-                    {
-                        if (!(blockface_bitmask & (1u << face))) continue;
-
-                        // Populate vertices 
-                        const auto& block_face = BLOCK_FACES[(std::size_t)face];
-
-                        glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
-
-                        for (int i = 0; i < 4; i++)
-                        {
-                            int vertex_base = i * 3;
-
-                            constexpr float w = 1.0f / 16.0f;
-
-                            vertices.emplace_back(
-                                block_face[vertex_base + 0] + block_offset.x,
-                                block_face[vertex_base + 1] + block_offset.y,
-                                block_face[vertex_base + 2] + block_offset.z,
-                                tile_map_offset.x + ((i == 1 || i == 2) ? w : 0.0f),
-                                tile_map_offset.y + ((i == 2 || i == 3) ? w : 0.0f),
-                                static_cast<std::uint8_t>(face),
-                                static_cast<std::uint8_t>(neighbour_lights[face])
-                            );
-                        }
-
-                        // Populate indices
-                        std::uint32_t base_index = static_cast<std::uint32_t>(vertices.size() - 4);
-                        indices.push_back(base_index + 0);
-                        indices.push_back(base_index + 1);
-                        indices.push_back(base_index + 2);
-                        indices.push_back(base_index + 0);
-                        indices.push_back(base_index + 2);
-                        indices.push_back(base_index + 3);
-                    }
-                }
-            }
-        }
     }
 
     void LoadShaderProgram()

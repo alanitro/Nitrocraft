@@ -1,13 +1,13 @@
-#include "World_Lighting.hpp"
+#include "World_Light.hpp"
 
-#include "World_Definitions.hpp"
+#include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
 
 namespace
 {
     void TryAddSunlightAdditionNode(
-        std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue,
+        std::queue<World_Light_LightAdditionNode>& sunlight_add_queue,
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
@@ -21,8 +21,8 @@ namespace
     }
 
     void TryAddSunlightRemovalNode(
-        std::queue<World_Lighting_LightRemovalNode>& sunlight_rem_queue,
-        std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue,
+        std::queue<World_Light_LightRemovalNode>& sunlight_rem_queue,
+        std::queue<World_Light_LightAdditionNode>& sunlight_add_queue,
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
@@ -41,7 +41,7 @@ namespace
     }
 
     void TryAddPointlightAdditionNode(
-        std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue,
+        std::queue<World_Light_LightAdditionNode>& pointlight_add_queue,
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
@@ -55,8 +55,8 @@ namespace
     }
 
     void TryAddPointlightRemovalNode(
-        std::queue<World_Lighting_LightRemovalNode>& pointlight_rem_queue,
-        std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue,
+        std::queue<World_Light_LightRemovalNode>& pointlight_rem_queue,
+        std::queue<World_Light_LightAdditionNode>& pointlight_add_queue,
         World_Chunk* chunk, World_LocalXYZ candidate, World_Light source_light
     )
     {
@@ -75,7 +75,7 @@ namespace
     }
 }
 
-void World_Lighting_PropagateSunlight(std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue)
+void World_Light_PropagateSunlight(std::queue<World_Light_LightAdditionNode>& sunlight_add_queue)
 {
     while (sunlight_add_queue.empty() == false)
     {
@@ -137,9 +137,9 @@ void World_Lighting_PropagateSunlight(std::queue<World_Lighting_LightAdditionNod
     }
 }
 
-void World_Lighting_UnpropagateSunlight(
-    std::queue<World_Lighting_LightRemovalNode>& sunlight_rem_queue,
-    std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue
+void World_Light_UnpropagateSunlight(
+    std::queue<World_Light_LightRemovalNode>& sunlight_rem_queue,
+    std::queue<World_Light_LightAdditionNode>& sunlight_add_queue
 )
 {
     while (sunlight_rem_queue.empty() == false)
@@ -214,10 +214,10 @@ void World_Lighting_UnpropagateSunlight(
     }
 
     // Fill in the gap of removed sunlight
-    World_Lighting_PropagateSunlight(sunlight_add_queue);
+    World_Light_PropagateSunlight(sunlight_add_queue);
 }
 
-void World_Lighting_PropagatePointlight(std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue)
+void World_Light_PropagatePointlight(std::queue<World_Light_LightAdditionNode>& pointlight_add_queue)
 {
     while (pointlight_add_queue.empty() == false)
     {
@@ -271,9 +271,9 @@ void World_Lighting_PropagatePointlight(std::queue<World_Lighting_LightAdditionN
     }
 }
 
-void World_Lighting_UnpropagatePointlight(
-    std::queue<World_Lighting_LightRemovalNode>& pointlight_rem_queue,
-    std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue
+void World_Light_UnpropagatePointlight(
+    std::queue<World_Light_LightRemovalNode>& pointlight_rem_queue,
+    std::queue<World_Light_LightAdditionNode>& pointlight_add_queue
 )
 {
     while (pointlight_rem_queue.empty() == false)
@@ -327,5 +327,5 @@ void World_Lighting_UnpropagatePointlight(
     }
 
     // Fill in the gap of removed pointlight
-    World_Lighting_PropagatePointlight(pointlight_add_queue);
+    World_Light_PropagatePointlight(pointlight_add_queue);
 }

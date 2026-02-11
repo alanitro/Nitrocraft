@@ -11,7 +11,7 @@ add_executable(${PROJECT_NAME}
 
     source/World.hpp
     source/World.cpp
-    source/World_Definitions.hpp
+    source/World_Coordinate.hpp
     source/World_Block.hpp
     source/World_Block.cpp
     source/World_Chunk.hpp
@@ -20,8 +20,10 @@ add_executable(${PROJECT_NAME}
     source/World_ActiveArea.cpp
     source/World_Generation.hpp
     source/World_Generation.cpp
-    source/World_Lighting.hpp
-    source/World_Lighting.cpp
+    source/World_Light.hpp
+    source/World_Light.cpp
+    source/World_Mesh.hpp
+    source/World_Mesh.cpp
 
     source/Graphics_Camera.hpp
     source/Graphics_Camera.cpp

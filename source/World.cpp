@@ -15,10 +15,10 @@ namespace
 
     std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         ChunkMap;
     World_ActiveArea                                ActiveArea{};
-    std::queue<World_Lighting_LightAdditionNode>    SunlightAdditionBFSQueue;
-    std::queue<World_Lighting_LightRemovalNode>     SunlightRemovalBFSQueue;
-    std::queue<World_Lighting_LightAdditionNode>    PointlightAdditionBFSQueue;
-    std::queue<World_Lighting_LightRemovalNode>     PointlightRemovalBFSQueue;
+    std::queue<World_Light_LightAdditionNode>    SunlightAdditionBFSQueue;
+    std::queue<World_Light_LightRemovalNode>     SunlightRemovalBFSQueue;
+    std::queue<World_Light_LightAdditionNode>    PointlightAdditionBFSQueue;
+    std::queue<World_Light_LightRemovalNode>     PointlightRemovalBFSQueue;
 }
 
 void World_Initialize()
@@ -72,7 +72,7 @@ World_Block World_GetBlockAt(World_GlobalXYZ global)
 {
     auto chunk = World_GetChunkAt(global);
 
-    if (chunk == nullptr) return World_Block{ World_BlockID::AIR };
+    if (chunk == nullptr) return World_Block{ World_Block_ID::AIR };
 
     return chunk->GetBlockAt(World_FromGlobalToLocal(global));
 }
@@ -100,7 +100,7 @@ const World_ActiveArea& World_GetActiveArea()
     return ActiveArea;
 }
 
-std::optional<std::pair<World_GlobalXYZ, World_BlockFace>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length)
+std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length)
 {
     assert(ray_direction.x != 0.0f || ray_direction.y != 0.0f || ray_direction.z != 0.0f);
     assert(glm::abs(glm::length(ray_direction) - 1.0f) <= 1e-4f);
@@ -108,7 +108,7 @@ std::optional<std::pair<World_GlobalXYZ, World_BlockFace>> World_CastRay(glm::ve
 
     if (ray_origin.y < 0.0f || ray_origin.y >= static_cast<float>(World_HEIGHT)) return std::nullopt;
 
-    if (World_GetBlockAt(World_GlobalXYZ(ray_origin)) != World_Block(World_BlockID::AIR)) return std::nullopt;
+    if (World_GetBlockAt(World_GlobalXYZ(ray_origin)) != World_Block(World_Block_ID::AIR)) return std::nullopt;
 
     World_GlobalXYZ current_voxel_position = World_GlobalXYZ(glm::floor(ray_origin));
 
@@ -133,30 +133,30 @@ std::optional<std::pair<World_GlobalXYZ, World_BlockFace>> World_CastRay(glm::ve
     {
         const float t_next = std::min(t_max_x, std::min(t_max_y, t_max_z));
 
-        World_BlockFace entered_face;
+        World_Block_Face entered_face;
 
         if (t_max_x <= t_next + EPS)
         {
             current_voxel_position.x += step_x;
             t_max_x += t_delta_x;
-            entered_face = step_x == 1 ? World_BlockFace::XN : World_BlockFace::XP;
+            entered_face = step_x == 1 ? World_Block_Face::XN : World_Block_Face::XP;
         }
 
         if (t_max_y <= t_next + EPS)
         {
             current_voxel_position.y += step_y;
             t_max_y += t_delta_y;
-            entered_face = step_y == 1 ? World_BlockFace::YN : World_BlockFace::YP;
+            entered_face = step_y == 1 ? World_Block_Face::YN : World_Block_Face::YP;
         }
 
         if (t_max_z <= t_next + EPS)
         {
             current_voxel_position.z += step_z;
             t_max_z += t_delta_z;
-            entered_face = step_z == 1 ? World_BlockFace::ZN : World_BlockFace::ZP;
+            entered_face = step_z == 1 ? World_Block_Face::ZN : World_Block_Face::ZP;
         }
 
-        if (World_GetBlockAt(World_GlobalXYZ(current_voxel_position)).ID != World_BlockID::AIR)
+        if (World_GetBlockAt(World_GlobalXYZ(current_voxel_position)).ID != World_Block_ID::AIR)
         {
             return std::make_pair(World_GlobalXYZ(current_voxel_position), entered_face);
         }

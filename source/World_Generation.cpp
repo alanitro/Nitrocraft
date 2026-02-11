@@ -4,7 +4,7 @@
 #include <FastNoise/FastNoise.h>
 #include "Utility_Array2D.hpp"
 #include "Utility_Array3D.hpp"
-#include "World_Definitions.hpp"
+#include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
 
@@ -142,7 +142,7 @@ void World_Generation_GenerateChunk(World_Chunk* chunk)
         {
             const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 32 + World_SEA_LEVEL + 32));
 
-            chunk->Payload->Blocks.At(ix, 0, iz).ID = World_BlockID::BEDROCK;
+            chunk->Payload->Blocks.At(ix, 0, iz).ID = World_Block_ID::BEDROCK;
 
             for (int iy = 1; iy < World_CHUNK_Y_SIZE; iy++)
             {
@@ -160,9 +160,9 @@ void World_Generation_GenerateChunk(World_Chunk* chunk)
                     (spaghetti_sample1 < thickness && spaghetti_sample1 > -thickness) &&
                     (spaghetti_sample2 < thickness && spaghetti_sample2 > -thickness)) || cheese_sample < (-0.65f - density);
 
-                if (iy < height && !hollow)         block.ID = World_BlockID::STONE;
-                else if (iy == height && !hollow)   block.ID = World_BlockID::GRASS;
-                else                                block.ID = World_BlockID::AIR;
+                if (iy < height && !hollow)         block.ID = World_Block_ID::STONE;
+                else if (iy == height && !hollow)   block.ID = World_Block_ID::GRASS;
+                else                                block.ID = World_Block_ID::AIR;
             }
         }
     }
@@ -174,7 +174,7 @@ void World_Generation_GenerateChunk(World_Chunk* chunk)
         {
             for (int iy = World_CHUNK_Y_SIZE - 1; iy >= 0; iy--)
             {
-                if (chunk->Payload->Blocks.At(ix, iy, iz).ID != World_BlockID::AIR)
+                if (chunk->Payload->Blocks.At(ix, iy, iz).ID != World_Block_ID::AIR)
                 {
                     chunk->Payload->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
 

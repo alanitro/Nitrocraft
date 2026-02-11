@@ -3,8 +3,9 @@
 #include <cstdint>
 #include <memory>
 #include <array>
-#include "World_Definitions.hpp"
+#include "World_Coordinate.hpp"
 #include "World_Block.hpp"
+#include "World_Light.hpp"
 #include "Utility_Array2D.hpp"
 #include "Utility_Array3D.hpp"
 
@@ -38,9 +39,10 @@ struct World_Chunk
     const World_ChunkID   ID;
 
     bool GenerationComplete = false;
-    bool LightingComplete = false;
-    bool HasModified = false;
-    bool NeighboursSet = false;
+    bool LightingComplete   = false;
+    bool MeshingComplete    = false;
+    bool HasModified        = false;
+    bool NeighboursSet      = false;
 
     std::array<World_Chunk*, (std::size_t)World_Chunk_Neighbour::COUNT> Neighbours{};
 
@@ -61,6 +63,6 @@ struct World_Chunk
     int  GetHeightAt(int local_x, int local_z);
     void SetHeightAt(int local_x, int local_z, std::uint8_t height);
 
-    std::array<World_Block, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> GetNeighbourBlocksAt(World_LocalXYZ local) const;
-    std::array<World_Light, static_cast<std::size_t>(World_BlockNeighbour::COUNT)> GetNeighbourLightsAt(World_LocalXYZ local) const;
+    std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> GetNeighbourBlocksAt(World_LocalXYZ local) const;
+    std::array<World_Light, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> GetNeighbourLightsAt(World_LocalXYZ local) const;
 };

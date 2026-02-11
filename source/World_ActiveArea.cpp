@@ -80,19 +80,19 @@ void World_ActiveArea_PerformGenerationPhase(World_ActiveArea& active_area)
 
 void World_ActiveArea_PerformLightingPhase(
     World_ActiveArea& active_area,
-    std::queue<World_Lighting_LightAdditionNode>& sunlight_add_queue,
-    std::queue<World_Lighting_LightRemovalNode>& sunlight_rem_queue,
-    std::queue<World_Lighting_LightAdditionNode>& pointlight_add_queue,
-    std::queue<World_Lighting_LightRemovalNode>& pointlight_rem_queue
+    std::queue<World_Light_LightAdditionNode>& sunlight_add_queue,
+    std::queue<World_Light_LightRemovalNode>& sunlight_rem_queue,
+    std::queue<World_Light_LightAdditionNode>& pointlight_add_queue,
+    std::queue<World_Light_LightRemovalNode>& pointlight_rem_queue
 )
 {
-    World_Lighting_UnpropagateSunlight(sunlight_rem_queue, sunlight_add_queue);
+    World_Light_UnpropagateSunlight(sunlight_rem_queue, sunlight_add_queue);
 
-    World_Lighting_PropagateSunlight(sunlight_add_queue);
+    World_Light_PropagateSunlight(sunlight_add_queue);
 
-    World_Lighting_UnpropagatePointlight(pointlight_rem_queue, pointlight_add_queue);
+    World_Light_UnpropagatePointlight(pointlight_rem_queue, pointlight_add_queue);
 
-    World_Lighting_PropagatePointlight(pointlight_add_queue);
+    World_Light_PropagatePointlight(pointlight_add_queue);
 
     /*for (int az = 2; az < World_LOADING_DIAMETER - 2; az++)
     {
@@ -136,11 +136,11 @@ void World_ActiveArea_PerformLightingPhase(
                     {// TODO: remove later (pointlight testing)
                         if (ix == World_CHUNK_X_SIZE / 2 && iz == World_CHUNK_Z_SIZE / 2) 
                         {
-                            chunk->SetBlockAt(World_LocalXYZ(ix, 16, iz), World_Block(World_BlockID::GLOWSTONE));
-                            chunk->SetBlockAt(World_LocalXYZ(ix, 32, iz), World_Block(World_BlockID::GLOWSTONE));
-                            chunk->SetBlockAt(World_LocalXYZ(ix, 48, iz), World_Block(World_BlockID::GLOWSTONE));
-                            chunk->SetBlockAt(World_LocalXYZ(ix, 64, iz), World_Block(World_BlockID::GLOWSTONE));
-                            chunk->SetBlockAt(World_LocalXYZ(ix, 80, iz), World_Block(World_BlockID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 16, iz), World_Block(World_Block_ID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 32, iz), World_Block(World_Block_ID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 48, iz), World_Block(World_Block_ID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 64, iz), World_Block(World_Block_ID::GLOWSTONE));
+                            chunk->SetBlockAt(World_LocalXYZ(ix, 80, iz), World_Block(World_Block_ID::GLOWSTONE));
                             chunk->SetPointlightAt(World_LocalXYZ(ix, 16, iz), World_LIGHT_LEVEL_14);
                             chunk->SetPointlightAt(World_LocalXYZ(ix, 32, iz), World_LIGHT_LEVEL_14);
                             chunk->SetPointlightAt(World_LocalXYZ(ix, 48, iz), World_LIGHT_LEVEL_14);
@@ -163,9 +163,9 @@ void World_ActiveArea_PerformLightingPhase(
                 }
             }
 
-            World_Lighting_PropagateSunlight(sunlight_add_queue);
+            World_Light_PropagateSunlight(sunlight_add_queue);
 
-            World_Lighting_PropagatePointlight(pointlight_add_queue); // TODO: remove later (pointlight testing)
+            World_Light_PropagatePointlight(pointlight_add_queue); // TODO: remove later (pointlight testing)
 
             chunk->LightingComplete = true;
         }

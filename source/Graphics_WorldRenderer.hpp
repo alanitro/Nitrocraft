@@ -1,6 +1,6 @@
 #pragma once
 
-#include "World_Definitions.hpp"
+#include "World_Coordinate.hpp"
 #include "World_ActiveArea.hpp"
 #include "Utility_Array2D.hpp"
 

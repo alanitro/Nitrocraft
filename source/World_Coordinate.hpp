@@ -5,44 +5,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
-// Block constants
-enum class World_BlockID : std::uint8_t
-{
-    AIR,
-    STONE,
-    BEDROCK,
-    DIRT,
-    GRASS,
-    SAND,
-    SNOW,
-    BRICK,
-    GLOWSTONE,
-    OAK,
-    OAK_LEAVES,
-    OAK_WOOD,
-
-    COUNT,
-};
-
-enum class World_BlockNeighbour
-{
-    XN, XP,
-    YN, YP,
-    ZN, ZP,
-
-    COUNT = 6,
-};
-
-enum class World_BlockFace
-{
-    XN, XP,
-    YN, YP,
-    ZN, ZP,
-
-    COUNT = 6,
-};
-
-// Coordinates (Right handed coordinate)
+// Coordinates (Right Handed Coordinate)
 using World_Position  = glm::vec3;  // World relative position
 using World_GlobalXYZ = glm::ivec3; // World relative position
 using World_LocalXYZ  = glm::ivec3; // Chunk relative position
@@ -68,15 +31,16 @@ constexpr int World_CHUNK_VOLUME = World_CHUNK_X_SIZE * World_CHUNK_Y_SIZE * Wor
 constexpr World_ChunkID World_FromGlobalToChunkID(World_GlobalXYZ position)
 {
     int& x = position.x;
-    int& y = position.y;
+    //int& y = position.y;
     int& z = position.z;
-    (void)y;
 
     constexpr int sx = World_CHUNK_X_SIZE;
+    //constexpr int sy = World_CHUNK_Y_SIZE;
     constexpr int sz = World_CHUNK_Z_SIZE;
 
     return World_ChunkID{
         (((x % sx >= 0) ? x : (x - sx)) / sx),
+        //(((y % sy >= 0) ? y : (y - sy)) / sy),
         0,
         (((z % sz >= 0) ? z : (z - sz)) / sz)
     };
@@ -95,38 +59,4 @@ constexpr World_LocalXYZ World_FromGlobalToLocal(World_GlobalXYZ position)
 constexpr World_GlobalXYZ World_FromChunkIDToChunkOffset(World_ChunkID chunk_id)
 {
     return chunk_id * World_GlobalXYZ{ World_CHUNK_X_SIZE, World_CHUNK_Y_SIZE, World_CHUNK_Z_SIZE };
-}
-
-// Lighting Constants
-using World_Light = std::uint8_t; // ppppssss p = Pointlight, s = Sunlight 
-
-constexpr World_Light World_LIGHT_LEVEL_00 = 0x00;
-constexpr World_Light World_LIGHT_LEVEL_01 = 0x01;
-constexpr World_Light World_LIGHT_LEVEL_02 = 0x02;
-constexpr World_Light World_LIGHT_LEVEL_03 = 0x03;
-constexpr World_Light World_LIGHT_LEVEL_04 = 0x04;
-constexpr World_Light World_LIGHT_LEVEL_05 = 0x05;
-constexpr World_Light World_LIGHT_LEVEL_06 = 0x06;
-constexpr World_Light World_LIGHT_LEVEL_07 = 0x07;
-constexpr World_Light World_LIGHT_LEVEL_08 = 0x08;
-constexpr World_Light World_LIGHT_LEVEL_09 = 0x09;
-constexpr World_Light World_LIGHT_LEVEL_10 = 0x0A;
-constexpr World_Light World_LIGHT_LEVEL_11 = 0x0B;
-constexpr World_Light World_LIGHT_LEVEL_12 = 0x0C;
-constexpr World_Light World_LIGHT_LEVEL_13 = 0x0D;
-constexpr World_Light World_LIGHT_LEVEL_14 = 0x0E;
-constexpr World_Light World_LIGHT_LEVEL_15 = 0x0F;
-constexpr World_Light World_LIGHT_LEVEL_MIN = World_LIGHT_LEVEL_00;
-constexpr World_Light World_LIGHT_LEVEL_MAX = World_LIGHT_LEVEL_15;
-constexpr World_Light World_LIGHT_LEVEL_SUN = World_LIGHT_LEVEL_MAX;
-constexpr World_Light World_LIGHT_LEVEL_POINT = World_LIGHT_LEVEL_MAX;
-
-constexpr World_Light World_ExtractSunlight(World_Light light)
-{
-    return (light >> 0) & 0x0F;
-}
-
-constexpr World_Light World_ExtractPointlight(World_Light light)
-{
-    return (light >> 4) & 0x0F;
 }

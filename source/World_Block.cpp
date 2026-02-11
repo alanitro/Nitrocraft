@@ -2,7 +2,7 @@
 
 namespace
 {
-    constexpr std::string_view BLOCK_NAMES[static_cast<std::size_t>(World_BlockID::COUNT)]
+    constexpr std::string_view BLOCK_NAMES[static_cast<std::size_t>(World_Block_ID::COUNT)]
     {
         "Air",
         "Stone",
