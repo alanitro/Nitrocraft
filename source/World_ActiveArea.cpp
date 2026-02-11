@@ -69,11 +69,11 @@ void World_ActiveArea_PerformGenerationPhase(World_ActiveArea& active_area)
         {
             World_Chunk* chunk = active_area.At(ix, iz);
 
-            if (chunk->GenerationComplete) continue;
+            if (chunk->Stage >= World_Chunk_Stage::GenerationComplete) continue;
 
             World_Generation_GenerateChunk(chunk);
 
-            chunk->GenerationComplete = true;
+            chunk->Stage = World_Chunk_Stage::GenerationComplete;
         }
     }
 }
@@ -127,7 +127,7 @@ void World_ActiveArea_PerformLightingPhase(
         {
             World_Chunk* chunk = active_area.At(ax, az);
 
-            if (chunk->LightingComplete) continue;
+            if (chunk->Stage >= World_Chunk_Stage::LightingComplete) continue;
 
             for (int iz = 0; iz < World_CHUNK_Z_SIZE; iz++)
             {
@@ -167,7 +167,7 @@ void World_ActiveArea_PerformLightingPhase(
 
             World_Light_PropagatePointlight(pointlight_add_queue); // TODO: remove later (pointlight testing)
 
-            chunk->LightingComplete = true;
+            chunk->Stage = World_Chunk_Stage::LightingComplete;
         }
     }
 }

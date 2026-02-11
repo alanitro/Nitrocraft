@@ -34,15 +34,33 @@ enum class World_Chunk_Neighbour
     COUNT,
 };
 
+enum class World_Chunk_Stage
+{
+    Empty,
+
+    GenerationRequested,
+    Generating,
+    GenerationComplete,
+
+    LightingRequested,
+    Lighting,
+    LightingComplete,
+
+    MeshingRequested,
+    Meshing,
+    MeshingComplete,
+    
+    COUNT,
+};
+
 struct World_Chunk
 {
     const World_ChunkID   ID;
 
-    bool GenerationComplete = false;
-    bool LightingComplete   = false;
-    bool MeshingComplete    = false;
-    bool HasModified        = false;
-    bool NeighboursSet      = false;
+    World_Chunk_Stage Stage = World_Chunk_Stage::Empty;
+
+    bool HasModified   = false;
+    bool NeighboursSet = false;
 
     std::array<World_Chunk*, (std::size_t)World_Chunk_Neighbour::COUNT> Neighbours{};
 
