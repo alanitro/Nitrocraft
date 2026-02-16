@@ -27,8 +27,12 @@ add_executable(${PROJECT_NAME}
 
     source/Graphics_Camera.hpp
     source/Graphics_Camera.cpp
+    source/Graphics_Shader.hpp
+    source/Graphics_Shader.cpp
     source/Graphics_WorldRenderer.hpp
     source/Graphics_WorldRenderer.cpp
+    source/Graphics_BlockOutlineRenderer.hpp
+    source/Graphics_BlockOutlineRenderer.cpp
 
     source/Utility_Time.hpp
     source/Utility_Timer.hpp

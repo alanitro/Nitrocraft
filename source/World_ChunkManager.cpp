@@ -74,7 +74,7 @@ void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
         {
             auto c = loading_area[i][j];
 
-            if (c->NeighboursSet) continue;
+            if (c->NeighboursSet.load(std::memory_order_relaxed)) continue;
 
             c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0] = loading_area[i - 1][j];
             c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0] = loading_area[i + 1][j];
@@ -85,7 +85,7 @@ void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
             c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZP] = loading_area[i - 1][j + 1];
             c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZP] = loading_area[i + 1][j + 1];
 
-            c->NeighboursSet = true;
+            c->NeighboursSet.store(true, std::memory_order_release);
         }
     }
 

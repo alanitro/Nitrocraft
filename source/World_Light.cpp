@@ -90,17 +90,17 @@ void World_Light_PropagateSunlight(std::queue<World_Light_LightAdditionNode>& su
 
         World_Light light = chunk->GetSunlightAt(World_LocalXYZ(lx, ly, lz));
 
+        // TODO: remove
+        if (chunk->NeighboursSet.load(std::memory_order_acquire) == false)
+        {
+            std::println("{} {}: neighbours not set", chunk->ID.x, chunk->ID.z);
+            return;
+        }
+
         World_Chunk* cxn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0];
         World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
         World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
         World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
-
-        // TODO: remove
-        if (!cxn) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
-        if (!cxp) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
-        if (!czn) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
-        if (!czp) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
-        if (!cxn || !cxp || !czn || !czp) return;
 
         chunk->HasModified = true;
 

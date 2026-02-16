@@ -10,9 +10,9 @@
 
 namespace
 {
-    constexpr float CONTINENTALNESS_SCALE  = 625.0f;
-    constexpr float CHEESE_CAVERN_SCALE    = 200.0f;
-    constexpr float SPAGHETTI_CAVERN_SCALE = 200.0f;
+    constexpr float CONTINENTALNESS_SCALE  = 1400.0f;
+    constexpr float CHEESE_CAVERN_SCALE    = 220.0f;
+    constexpr float SPAGHETTI_CAVERN_SCALE = 220.0f;
 
     constexpr std::size_t SAMPLE_X_SIZE = World_CHUNK_X_SIZE;
     constexpr std::size_t SAMPLE_Y_SIZE = World_CHUNK_Y_SIZE;
@@ -84,7 +84,7 @@ void World_Generation_Initialize(int generation_seed)
 
         ContinentalnessNoise = FastNoise::New<FastNoise::FractalFBm>();
         ContinentalnessNoise->SetSource(continentalness_source);
-        ContinentalnessNoise->SetOctaveCount(4);
+        ContinentalnessNoise->SetOctaveCount(5);
         ContinentalnessNoise->SetLacunarity(2.6f);
         ContinentalnessNoise->SetGain(0.5f);
     }

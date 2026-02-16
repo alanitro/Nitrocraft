@@ -96,10 +96,10 @@ struct World_Chunk
     // This is to avoid duplicate enqueuing of jobs of same type.
     std::atomic<std::uint8_t> EnqueuedStates = 0;
 
-    bool HasModified   = false;
-    bool NeighboursSet = false;
+    bool HasModified = false;
 
     std::array<World_Chunk*, (std::size_t)World_Chunk_Neighbour::COUNT> Neighbours{};
+    std::atomic<bool> NeighboursSet = false;
 
     std::unique_ptr<World_Chunk_Storage> Storage;
     std::atomic<int> StorageVersion = 0;

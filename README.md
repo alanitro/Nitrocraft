@@ -17,16 +17,27 @@ cmake --build ./build --config [Release|Debug]
 ## Features
 - [x] Infinite terrain generation
 - [x] Spaghetti/Cheese cave generation
-- [ ] Block place/remove
-- [ ] Collision detection
 - [x] Flood fill lighting
 - [x] Day/Night cycle
+- [x] Multithreaded chunk generation
+- [ ] Block placement/removal
+- [ ] Basic GUI
+- [ ] Collision detection
 - [ ] Frustum culling
 - [ ] Ambient occlusion
-- [ ] Basic GUI
-- [ ] Multithreading
+- [ ] Smooth lighting
+
+## Controls
+- `WASD` for xz-plane movement
+- `SPACE` to ascend
+- `LEFT-CTRL` to descend
+- `LEFT-SHIFT` to sprint
 
 ## Learning Resource (Resources I came across)
+- C++:\
+https://www.learncpp.com
+- C++ Concurrency:\
+https://www.manning.com/books/c-plus-plus-concurrency-in-action-second-edition
 - OpenGL:\
 <https://learnopengl.com>\
 <https://docs.gl>

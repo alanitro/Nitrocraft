@@ -7,6 +7,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "World.hpp"
+#include "Graphics_BlockOutlineRenderer.hpp"
 #include "Graphics_WorldRenderer.hpp"
 #include "Graphics_Camera.hpp"
 #include "Utility_Time.hpp"
@@ -151,7 +152,7 @@ void ImGUI_Initialize(GLFWwindow* window)
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    io.FontGlobalScale = 1.8f;
+    io.FontGlobalScale = 1.6f;
 
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
@@ -205,7 +206,9 @@ void Nitrocraft_Run()
     camera.SetFar(640.0f);
     camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
 
-    WorldRenderer_Initialize();
+    Graphics_BlockOutlineRenderer_Initialize();
+
+    Graphics_WorldRenderer_Initialize();
 
     World_Initialize();
 
@@ -229,6 +232,8 @@ void Nitrocraft_Run()
         World_Update(camera);
 
         WorldRenderer_PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea());
+
+        auto raycast_result_opt = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
 
         if (ImGui::Begin("Information & Configs"))
         {
@@ -255,10 +260,10 @@ void Nitrocraft_Run()
             ImGui::Text("Z Rotation : %.2f", camera.GetFront().z);
             ImGui::Text(" ");
 
-            ImGui::Text("Chunk Gen Thread Count: %d", World_GetChunkManager().GetWorkerThreadCount());
+            ImGui::Text("Chunk Gen Threads: %d", World_GetChunkManager().GetWorkerThreadCount());
             ImGui::Text(" ");
 
-            ImGui::Text("Chunk Loaded Count: %d", World_GetChunkManager().GetLoadedChunkCount());
+            ImGui::Text("Chunks Loaded: %d", World_GetChunkManager().GetLoadedChunkCount());
             ImGui::Text(" ");
 
             auto id = World_FromGlobalToChunkID(camera.GetPosition());
@@ -273,14 +278,13 @@ void Nitrocraft_Run()
             ImGui::Text("Pointlight Level : %02d", (int)World_ExtractPointlight(World_GetLightAt(camera.GetPosition())));
             ImGui::Text(" ");
 
-            auto raycast_result = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
             ImGui::Text(
                 "Selected Block: %s",
-                raycast_result.has_value() ? std::string(World_GetBlockAt(raycast_result.value().first).GetBlockName()).c_str() : "None"
+                raycast_result_opt.has_value() ? std::string(World_GetBlockAt(raycast_result_opt.value().first).GetBlockName()).c_str() : "None"
             );
             ImGui::Text(
                 "Selected Face: %s",
-                raycast_result.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (int)raycast_result.value().second * 3 : "None"
+                raycast_result_opt.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (int)raycast_result_opt.value().second * 3 : "None"
             );
             ImGui::Text(" ");
 
@@ -296,7 +300,7 @@ void Nitrocraft_Run()
             }
             ImGui::Text(" ");
 
-            ImGui::SliderFloat(" Player Speed", &PlayerSpeed, 1.0f, 100.0f);
+            ImGui::SliderFloat(" Speed", &PlayerSpeed, 1.0f, 100.0f);
             ImGui::Text(" ");
         }
         ImGui::End();
@@ -305,6 +309,13 @@ void Nitrocraft_Run()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         WorldRenderer_Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
+
+        if (raycast_result_opt.has_value())
+        {
+            World_Position position = raycast_result_opt.value().first;
+
+            Graphics_BlockOutlineRenderer_RenderBlock(camera, position);
+        }
 
         ImGUI_Render();
 
