@@ -14,7 +14,7 @@ using World_ChunkID   = glm::ivec3; // Center chunk ID = (0,0,0), positive +1x c
 // World Constants
 constexpr int World_HEIGHT          = 256;
 constexpr int World_SEA_LEVEL       = 64;
-constexpr int World_RENDER_DISTANCE = 6; // Render radius in Chunk unit
+constexpr int World_RENDER_DISTANCE = 12; // Render radius in Chunk unit
 
 // Loading Constants
 constexpr int World_LOADING_RADIUS      = World_RENDER_DISTANCE + 3;

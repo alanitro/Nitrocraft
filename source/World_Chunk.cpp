@@ -1,57 +1,64 @@
 #include "World_Chunk.hpp"
 
+#include <algorithm>
+
 World_Block World_Chunk::GetBlockAt(World_LocalXYZ local) const
 {
-    return Payload->Blocks.At(local.x, local.y, local.z);
+    return Storage->Blocks.At(local.x, local.y, local.z);
 }
 
 World_Light World_Chunk::GetLightAt(World_LocalXYZ local) const
 {
-    return Payload->Lights.At(local.x, local.y, local.z);
+    return Storage->Lights.At(local.x, local.y, local.z);
 }
 
 World_Light World_Chunk::GetSunlightAt(World_LocalXYZ local) const
 {
-    return World_ExtractSunlight(Payload->Lights.At(local.x, local.y, local.z));
+    return World_ExtractSunlight(Storage->Lights.At(local.x, local.y, local.z));
 }
 
 World_Light World_Chunk::GetPointlightAt(World_LocalXYZ local) const
 {
-    return World_ExtractPointlight(Payload->Lights.At(local.x, local.y, local.z));
+    return World_ExtractPointlight(Storage->Lights.At(local.x, local.y, local.z));
 }
 
 void World_Chunk::SetBlockAt(World_LocalXYZ local, World_Block block)
 {
-    Payload->Blocks.At(local.x, local.y, local.z) = block;
+    Storage->Blocks.At(local.x, local.y, local.z) = block;
 }
 
 void World_Chunk::SetLightAt(World_LocalXYZ local, World_Light sunlight, World_Light pointlight)
 {
-    Payload->Lights.At(local.x, local.y, local.z) = ((sunlight << 0) & 0x0F) | ((pointlight << 4) & 0xF0);
+    Storage->Lights.At(local.x, local.y, local.z) = ((sunlight << 0) & 0x0F) | ((pointlight << 4) & 0xF0);
 }
 
 void World_Chunk::SetSunlightAt(World_LocalXYZ local, World_Light sunlight)
 {
-    auto& light = Payload->Lights.At(local.x, local.y, local.z);
+    auto& light = Storage->Lights.At(local.x, local.y, local.z);
 
     light = (light & 0xF0) | ((sunlight << 0) & 0x0F);
 }
 
 void World_Chunk::SetPointlightAt(World_LocalXYZ local, World_Light pointlight)
 {
-    auto& light = Payload->Lights.At(local.x, local.y, local.z);
+    auto& light = Storage->Lights.At(local.x, local.y, local.z);
 
     light = (light & 0x0F) | ((pointlight << 4) & 0xF0);
 }
 
-int World_Chunk::GetHeightAt(int local_x, int local_z)
+int World_Chunk::GetHeightAt(int local_x, int local_z) const
 {
-    return Payload->Heights.At(local_x, local_z);
+    return Storage->Heights.At(local_x, local_z);
+}
+
+int World_Chunk::GetMaxHeight() const
+{
+    return *std::max_element(Storage->Heights.begin(), Storage->Heights.end());;
 }
 
 void World_Chunk::SetHeightAt(int local_x, int local_z, std::uint8_t height)
 {
-    Payload->Heights.At(local_x, local_z) = static_cast<std::uint8_t>(height);
+    Storage->Heights.At(local_x, local_z) = static_cast<std::uint8_t>(height);
 }
 
 std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> World_Chunk::GetNeighbourBlocksAt(World_LocalXYZ local) const

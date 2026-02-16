@@ -21,18 +21,18 @@ namespace
     int GenerationSeed;
 
     // Terrain noise
-    FastNoise::SmartNode<FastNoise::FractalFBm>  ContinentalnessNoise{};
+    thread_local FastNoise::SmartNode<FastNoise::FractalFBm>  ContinentalnessNoise{};
 
     // Cavern noise
-    FastNoise::SmartNode<FastNoise::FractalFBm>  CheeseCavernNoise{};
-    FastNoise::SmartNode<FastNoise::FractalFBm>  SpaghettiCavernNoise1{};
-    FastNoise::SmartNode<FastNoise::FractalFBm>  SpaghettiCavernNoise2{};
+    thread_local FastNoise::SmartNode<FastNoise::FractalFBm>  CheeseCavernNoise{};
+    thread_local FastNoise::SmartNode<FastNoise::FractalFBm>  SpaghettiCavernNoise1{};
+    thread_local FastNoise::SmartNode<FastNoise::FractalFBm>  SpaghettiCavernNoise2{};
 
     // Noise sample storage
-    Array2D<float, SAMPLE_X_SIZE, SAMPLE_Z_SIZE>                ContinentalnessSamples;
-    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> CheeseCavernSamples;
-    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples1;
-    Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples2;
+    thread_local Array2D<float, SAMPLE_X_SIZE, SAMPLE_Z_SIZE>                ContinentalnessSamples;
+    thread_local Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> CheeseCavernSamples;
+    thread_local Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples1;
+    thread_local Array3D<float, SAMPLE_X_SIZE, SAMPLE_Y_SIZE, SAMPLE_Z_SIZE> SpaghettiCavernSamples2;
 
     void GenerateSamples(World_GlobalXYZ chunk_offset)
     {
@@ -140,13 +140,13 @@ void World_Generation_GenerateChunk(World_Chunk* chunk)
     {
         for (int ix = 0; ix < World_CHUNK_X_SIZE; ix++)
         {
-            const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 32 + World_SEA_LEVEL + 32));
+            const int height = static_cast<int>(std::floor(ContinentalnessSamples.At(ix, iz) * 64 + World_SEA_LEVEL + 64));
 
-            chunk->Payload->Blocks.At(ix, 0, iz).ID = World_Block_ID::BEDROCK;
+            chunk->Storage->Blocks.At(ix, 0, iz).ID = World_Block_ID::BEDROCK;
 
             for (int iy = 1; iy < World_CHUNK_Y_SIZE; iy++)
             {
-                auto& block = chunk->Payload->Blocks.At(ix, iy, iz);
+                auto& block = chunk->Storage->Blocks.At(ix, iy, iz);
 
                 float cheese_sample     = CheeseCavernSamples.At(ix, iy, iz);
                 float spaghetti_sample1 = SpaghettiCavernSamples1.At(ix, iy, iz);
@@ -174,9 +174,9 @@ void World_Generation_GenerateChunk(World_Chunk* chunk)
         {
             for (int iy = World_CHUNK_Y_SIZE - 1; iy >= 0; iy--)
             {
-                if (chunk->Payload->Blocks.At(ix, iy, iz).ID != World_Block_ID::AIR)
+                if (chunk->Storage->Blocks.At(ix, iy, iz).ID != World_Block_ID::AIR)
                 {
-                    chunk->Payload->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
+                    chunk->Storage->Heights.At(ix, iz) = static_cast<std::uint8_t>(iy);
 
                     break;
                 }

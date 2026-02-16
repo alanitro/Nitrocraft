@@ -5,7 +5,7 @@
 #include "Graphics_Camera.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
-#include "World_ActiveArea.hpp"
+#include "World_ChunkManager.hpp"
 #include "World_Generation.hpp"
 #include "Utility_Time.hpp"
 
@@ -13,49 +13,22 @@ namespace
 {
     constexpr glm::vec3 SKY_COLOR = { 0.2f, 0.75f, 0.95f };
 
-    std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>>         ChunkMap;
-    World_ActiveArea                                ActiveArea{};
-    std::queue<World_Light_LightAdditionNode>    SunlightAdditionBFSQueue;
-    std::queue<World_Light_LightRemovalNode>     SunlightRemovalBFSQueue;
-    std::queue<World_Light_LightAdditionNode>    PointlightAdditionBFSQueue;
-    std::queue<World_Light_LightRemovalNode>     PointlightRemovalBFSQueue;
+    std::unique_ptr<World_ChunkManager> ChunkManager;
 }
 
 void World_Initialize()
 {
-    World_Generation_Initialize(12345);
-
-    World_ActiveArea_LoadChunks(ActiveArea, ChunkMap, World_LocalXYZ(0, 0, 0));
-
-    World_ActiveArea_PerformGenerationPhase(ActiveArea);
-
-    World_ActiveArea_PerformLightingPhase(
-        ActiveArea,
-        SunlightAdditionBFSQueue,
-        SunlightRemovalBFSQueue,
-        PointlightAdditionBFSQueue,
-        PointlightRemovalBFSQueue
-    );
+    ChunkManager = std::make_unique<World_ChunkManager>();
 }
 
 void World_Terminate()
 {
-    ChunkMap.clear();
+
 }
 
 void World_Update(const Camera& camera)
 {
-    World_ActiveArea_LoadChunks(ActiveArea, ChunkMap, World_FromGlobalToChunkID(camera.GetPosition()));
-
-    World_ActiveArea_PerformGenerationPhase(ActiveArea);
-
-    World_ActiveArea_PerformLightingPhase(
-        ActiveArea,
-        SunlightAdditionBFSQueue,
-        SunlightRemovalBFSQueue,
-        PointlightAdditionBFSQueue,
-        PointlightRemovalBFSQueue
-    );
+    ChunkManager->SetCenterChunkMainThread(World_FromGlobalToChunkID(camera.GetPosition()));
 }
 
 float World_GetSunlightIntensity()
@@ -88,16 +61,16 @@ World_Light World_GetLightAt(World_GlobalXYZ global)
 
 const World_Chunk* World_GetChunkAt(World_GlobalXYZ global)
 {
-    auto iter = ChunkMap.find(World_FromGlobalToChunkID(global));
+    auto chunk_opt = ChunkManager->GetChunkAt(global);
 
-    if (iter == ChunkMap.end()) return nullptr;
+    if (chunk_opt.has_value()) return chunk_opt.value();
 
-    return iter->second.get();
+    return nullptr;
 }
 
-const World_ActiveArea& World_GetActiveArea()
+const World_ChunkManager& World_GetChunkManager()
 {
-    return ActiveArea;
+    return *ChunkManager;
 }
 
 std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length)

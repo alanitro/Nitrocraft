@@ -84,11 +84,7 @@ namespace
 }
 
 
-void World_Mesh_GenerateChunkCPUMesh(
-    const World_Chunk* chunk,
-    std::vector<World_Mesh_ChunkCPUMeshVertex>& vertices,
-    std::vector<std::uint32_t>& indices
-)
+void World_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, World_Chunk_CPUMesh& mesh)
 {
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
@@ -134,7 +130,7 @@ void World_Mesh_GenerateChunkCPUMesh(
 
                         constexpr float w = 1.0f / 16.0f;
 
-                        vertices.emplace_back(
+                        mesh.Vertices.emplace_back(
                             block_face[vertex_base + 0] + block_offset.x,
                             block_face[vertex_base + 1] + block_offset.y,
                             block_face[vertex_base + 2] + block_offset.z,
@@ -146,9 +142,9 @@ void World_Mesh_GenerateChunkCPUMesh(
                     }
 
                     // Populate indices
-                    std::uint32_t base_index = static_cast<std::uint32_t>(vertices.size() - 4);
-                    indices.insert(
-                        indices.end(),
+                    std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
+                    mesh.Indices.insert(
+                        mesh.Indices.end(),
                         {
                             base_index + 0, base_index + 1, base_index + 2,
                             base_index + 0, base_index + 2, base_index + 3

@@ -11,12 +11,11 @@
 #include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
-#include "World_Mesh.hpp"
 #include "Utility_Time.hpp"
 
 namespace
 {
-    struct ChunkGPUMesh
+    struct ChunkGPUMeshHandle
     {
         GLuint VertexArrayID;
         GLuint VertexBufferID;
@@ -27,11 +26,11 @@ namespace
     GLuint ChunkShaderProgram = 0;
     GLuint BlocksTexture = 0;
 
-    std::vector<ChunkGPUMesh*>                      ChunksToRender;
-    std::unordered_map<World_ChunkID, ChunkGPUMesh> ChunkMeshes;
 
+    std::vector<World_ChunkID> GPUMeshIDsToRender;
+    std::unordered_map<World_ChunkID, ChunkGPUMeshHandle> GPUMeshHandleMap;
 
-    void PushChunksToRender(const World_Chunk* chunk);
+    void UploadCPUMeshToGPU(World_Chunk* chunk);
     void LoadShaderProgram();
     void LoadTexture();
 
@@ -46,7 +45,7 @@ void WorldRenderer_Initialize()
 
 void WorldRenderer_Terminate()
 {
-    for (auto& [chunk_id, chunk_mesh] : ChunkMeshes)
+    for (auto& [chunk_id, chunk_mesh] : GPUMeshHandleMap)
     {
         glDeleteVertexArrays(1, &chunk_mesh.VertexArrayID);
         glDeleteBuffers(1, &chunk_mesh.VertexBufferID);
@@ -82,81 +81,97 @@ void WorldRenderer_Render(const Camera& camera, float sunlight_intensity, glm::v
     
     glUniform1f(glGetUniformLocation(ChunkShaderProgram, "u_SunlightIntensity"), sunlight_intensity);
 
-    for (auto chunk_mesh : ChunksToRender)
+    for (auto& chunk_id : GPUMeshIDsToRender)
     {
-        glBindVertexArray(chunk_mesh->VertexArrayID);
+        auto it = GPUMeshHandleMap.find(chunk_id);
 
-        glDrawElements(GL_TRIANGLES, chunk_mesh->IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
+        if (it == GPUMeshHandleMap.end()) continue;
+        
+        auto& handle = it->second;
+
+        glBindVertexArray(handle.VertexArrayID);
+
+        glDrawElements(GL_TRIANGLES, handle.IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
     }
 
-    ChunksToRender.clear();
+    GPUMeshIDsToRender.clear();
 }
 
-void WorldRenderer_PrepareChunksToRender(const World_ActiveArea& active_area)
+void WorldRenderer_PrepareChunksToRender(const std::vector<World_Chunk*>& chunks_in_render_area)
 {
-    for (int ix = 3; ix < World_LOADING_DIAMETER - 3; ix++)
+    for (auto c : chunks_in_render_area)
     {
-        for (int iz = 3; iz < World_LOADING_DIAMETER - 3; iz++)
-        {
-            PushChunksToRender(active_area.At(ix, iz));
-        }
+        UploadCPUMeshToGPU(c);
     }
 }
 
 namespace // internal
 {
-    void PushChunksToRender(const World_Chunk* chunk)
+    void UploadCPUMeshToGPU(World_Chunk* chunk)
     {
         World_ChunkID chunk_id = chunk->ID;
-        World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
+        World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk_id);
 
-        if (auto iter = ChunkMeshes.find(chunk_id); iter != ChunkMeshes.end())
+        // If the chunk has completed cpu mesh -> delete the old gpu mesh handle, if it exists.
+        // If the chunk does not have completed cpu mesh -> use the old gpu mesh handle, if it exists, exit otherwise.
+        World_Chunk_Stage expected = World_Chunk_Stage::MeshingComplete;
+        if (chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::Ready, std::memory_order_acq_rel, std::memory_order_acquire))
         {
-            ChunksToRender.push_back(&iter->second);
-            return;
+            if (auto iter = GPUMeshHandleMap.find(chunk_id); iter != GPUMeshHandleMap.end())
+            {
+                glDeleteVertexArrays(1, &iter->second.VertexArrayID);
+                glDeleteBuffers(1, &iter->second.VertexBufferID);
+                glDeleteBuffers(1, &iter->second.IndexBufferID);
+                iter->second.IndicesCount = 0;
+                GPUMeshHandleMap.erase(chunk_id);
+            }
+
+            // TODO: use buffer orphaning instead of recreating new buffer
+            // Create new gpu mesh handle.
+            ChunkGPUMeshHandle gpumesh_handle;
+            glGenVertexArrays(1, &gpumesh_handle.VertexArrayID);
+            glGenBuffers(1, &gpumesh_handle.VertexBufferID);
+            glGenBuffers(1, &gpumesh_handle.IndexBufferID);
+
+            glBindVertexArray(gpumesh_handle.VertexArrayID);
+            glBindBuffer(GL_ARRAY_BUFFER, gpumesh_handle.VertexBufferID);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gpumesh_handle.IndexBufferID);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, X)));
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, S)));
+            glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, F)));
+            glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, L)));
+            glEnableVertexAttribArray(0);
+            glEnableVertexAttribArray(1);
+            glEnableVertexAttribArray(2);
+            glEnableVertexAttribArray(3);
+
+            gpumesh_handle.IndicesCount = 0;
+
+            // Move the cpu mesh out of chunk.
+            auto cpumesh = std::move(chunk->CPUMesh);
+
+            // Upload cpu mesh to gpu.
+            glBufferData(GL_ARRAY_BUFFER, cpumesh.Vertices.size() * sizeof(World_Chunk_CPUMeshVertex), cpumesh.Vertices.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, cpumesh.Indices.size() * sizeof(std::uint32_t), cpumesh.Indices.data(), GL_STATIC_DRAW);
+
+            gpumesh_handle.IndicesCount = static_cast<std::uint32_t>(cpumesh.Indices.size());
+
+            glBindVertexArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+            auto res = GPUMeshHandleMap.emplace(chunk_id, std::move(gpumesh_handle));
+
+            GPUMeshIDsToRender.push_back(chunk_id);
         }
-
-        // Create temp cpu mesh
-        static std::vector<World_Mesh_ChunkCPUMeshVertex> vertices(World_CHUNK_VOLUME * 6 * 4);
-        static std::vector<std::uint32_t>   indices(World_CHUNK_VOLUME * 6 * 6);
-        vertices.clear();
-        indices.clear();
-
-        World_Mesh_GenerateChunkCPUMesh(chunk, vertices, indices);
-
-        // Create gpu mesh and upload vertices and indices data
-        ChunkGPUMesh chunk_gpu_mesh;
-        glGenVertexArrays(1, &chunk_gpu_mesh.VertexArrayID);
-        glGenBuffers(1, &chunk_gpu_mesh.VertexBufferID);
-        glGenBuffers(1, &chunk_gpu_mesh.IndexBufferID);
-
-        glBindVertexArray(chunk_gpu_mesh.VertexArrayID);
-        glBindBuffer(GL_ARRAY_BUFFER, chunk_gpu_mesh.VertexBufferID);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk_gpu_mesh.IndexBufferID);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, X)));
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, S)));
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, F)));
-        glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(World_Mesh_ChunkCPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Mesh_ChunkCPUMeshVertex, L)));
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-        glEnableVertexAttribArray(3);
-
-        chunk_gpu_mesh.IndicesCount = 0;
-
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(World_Mesh_ChunkCPUMeshVertex), vertices.data(), GL_STATIC_DRAW);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
-
-        chunk_gpu_mesh.IndicesCount = static_cast<std::uint32_t>(indices.size());
-
-        glBindVertexArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-        auto res = ChunkMeshes.emplace(chunk_id, chunk_gpu_mesh);
-
-        ChunksToRender.push_back(&res.first->second);
+        else
+        {
+            if (auto iter = GPUMeshHandleMap.find(chunk_id); iter != GPUMeshHandleMap.end())
+            {
+                GPUMeshIDsToRender.push_back(chunk_id);
+            }
+        }
     }
 
     void LoadShaderProgram()

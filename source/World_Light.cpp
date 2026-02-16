@@ -1,5 +1,7 @@
 #include "World_Light.hpp"
 
+#include <algorithm>
+#include <print> // TODO: remove
 #include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Chunk.hpp"
@@ -92,6 +94,13 @@ void World_Light_PropagateSunlight(std::queue<World_Light_LightAdditionNode>& su
         World_Chunk* cxp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0];
         World_Chunk* czn = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN];
         World_Chunk* czp = chunk->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP];
+
+        // TODO: remove
+        if (!cxn) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
+        if (!cxp) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
+        if (!czn) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
+        if (!czp) std::println("{} {}: null neighbour", chunk->ID.x, chunk->ID.z);
+        if (!cxn || !cxp || !czn || !czp) return;
 
         chunk->HasModified = true;
 
@@ -328,4 +337,28 @@ void World_Light_UnpropagatePointlight(
 
     // Fill in the gap of removed pointlight
     World_Light_PropagatePointlight(pointlight_add_queue);
+}
+
+void World_Light_PropagateInitialSunlight(World_Chunk* chunk)
+{
+    std::queue<World_Light_LightAdditionNode> sunlight_add_queue;
+
+    int max_height = chunk->GetMaxHeight();
+
+    for (auto n : chunk->Neighbours)
+    {
+        auto n_max = n->GetMaxHeight();
+        if (n_max > max_height) max_height = n_max;
+    }
+
+    for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
+    for (int lx = 0; lx < World_CHUNK_X_SIZE; lx++)
+    for (int ly = World_CHUNK_Y_SIZE - 1; chunk->GetBlockAt(World_LocalXYZ(lx, ly, lz)).IsOpaque() == false && ly >= 0; ly--)
+    {
+        chunk->SetSunlightAt(World_LocalXYZ(lx, ly, lz), World_LIGHT_LEVEL_SUN);
+
+        if (ly <= max_height) sunlight_add_queue.emplace(chunk, World_LocalXYZ(lx, ly, lz));
+    }
+
+    World_Light_PropagateSunlight(sunlight_add_queue);
 }

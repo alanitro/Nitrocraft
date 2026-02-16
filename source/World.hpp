@@ -3,7 +3,7 @@
 #include <utility>
 #include <optional>
 #include "World_Coordinate.hpp"
-#include "World_ActiveArea.hpp"
+#include "World_ChunkManager.hpp"
 #include "World_Block.hpp"
 #include "Utility_Array2D.hpp"
 
@@ -22,6 +22,6 @@ World_Light             World_GetLightAt(World_GlobalXYZ global);
 
 const World_Chunk*      World_GetChunkAt(World_GlobalXYZ global);
 
-const World_ActiveArea& World_GetActiveArea();
+const World_ChunkManager& World_GetChunkManager();
 
 std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length);

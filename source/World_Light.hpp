@@ -70,3 +70,5 @@ void World_Light_UnpropagatePointlight(
     std::queue<World_Light_LightRemovalNode>& pointlight_rem_queue,
     std::queue<World_Light_LightAdditionNode>& pointlight_add_queue
 );
+
+void World_Light_PropagateInitialSunlight(World_Chunk* chunk);
