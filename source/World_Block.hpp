@@ -63,5 +63,5 @@ struct World_Block
         return ID == World_Block_ID::AIR || ID == World_Block_ID::OAK_LEAVES;
     }
 
-    std::string_view GetBlockName();
+    std::string_view GetBlockName() const;
 };

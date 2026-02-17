@@ -28,7 +28,7 @@ void World_Terminate()
 
 void World_Update(const Camera& camera)
 {
-    ChunkManager->SetCenterChunkMainThread(World_FromGlobalToChunkID(camera.GetPosition()));
+    ChunkManager->SetCenterChunk_MainThread(World_FromGlobalToChunkID(camera.GetPosition()));
 }
 
 float World_GetSunlightIntensity()
@@ -43,6 +43,8 @@ glm::vec3 World_GetSkyColor()
 
 World_Block World_GetBlockAt(World_GlobalXYZ global)
 {
+    if (global.y < 0 || global.y >= World_HEIGHT) return World_Block{ World_Block_ID::AIR };
+
     auto chunk = World_GetChunkAt(global);
 
     if (chunk == nullptr) return World_Block{ World_Block_ID::AIR };
@@ -52,6 +54,8 @@ World_Block World_GetBlockAt(World_GlobalXYZ global)
 
 World_Light World_GetLightAt(World_GlobalXYZ global)
 {
+    if (global.y < 0 || global.y >= World_HEIGHT) return World_LIGHT_LEVEL_MIN;
+
     auto chunk = World_GetChunkAt(global);
 
     if (chunk == nullptr) return World_LIGHT_LEVEL_MIN;
@@ -71,6 +75,11 @@ const World_Chunk* World_GetChunkAt(World_GlobalXYZ global)
 const World_ChunkManager& World_GetChunkManager()
 {
     return *ChunkManager;
+}
+
+void World_SetRenderDistance(std::size_t render_distance)
+{
+    ChunkManager->SetRenderDistance(render_distance);
 }
 
 std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length)

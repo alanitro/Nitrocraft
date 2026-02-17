@@ -85,7 +85,7 @@ enum class World_Chunk_Stage
 
 struct World_Chunk
 {
-    const World_ChunkID ID;
+    const World_Chunk_ID ID;
 
     std::atomic<World_Chunk_Stage> Stage = World_Chunk_Stage::Empty;
 
@@ -109,7 +109,7 @@ struct World_Chunk
     // After moving out the CPUMesh for uploading to GPU VBO/IBO, Stage==Ready.
     World_Chunk_CPUMesh CPUMesh;
 
-    explicit World_Chunk(World_ChunkID id) : ID{ id } {}
+    explicit World_Chunk(World_Chunk_ID id) : ID{ id } {}
 
     World_Block GetBlockAt(World_LocalXYZ local) const;
     World_Light GetLightAt(World_LocalXYZ local) const;

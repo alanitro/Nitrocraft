@@ -19,7 +19,7 @@ namespace
     };
 }
 
-std::string_view World_Block::GetBlockName()
+std::string_view World_Block::GetBlockName() const
 {
     return BLOCK_NAMES[static_cast<std::size_t>(ID)];
 }

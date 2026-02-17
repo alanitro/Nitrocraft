@@ -7,9 +7,9 @@
 
 World_ChunkManager::World_ChunkManager()
 {
-    m_ChunkMap.reserve(World_LOADING_AREA * 2);
+    m_ChunkMap.reserve(GetLoadingDiameter() * GetLoadingDiameter() * 8);
 
-    m_WorkerCount = std::clamp(std::thread::hardware_concurrency(), 1u, 16u);
+    m_WorkerCount = std::clamp(std::thread::hardware_concurrency(), 1u, 8u);
 
     m_Workers.reserve(m_WorkerCount);
     
@@ -28,26 +28,35 @@ World_ChunkManager::~World_ChunkManager()
     m_Workers.clear();
 }
 
-void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
+void World_ChunkManager::SetCenterChunk_MainThread(World_Chunk_ID center_id)
 {
-    if (m_CurrentCenterID == center_id) return;
+    static std::size_t prev_render_distance = 6;
+    
+    if (m_CurrentChunkID == center_id && prev_render_distance == m_RenderDistance) return;
 
-    m_CurrentCenterID = center_id;
+    m_CurrentChunkID = center_id;
+    prev_render_distance = m_RenderDistance;
 
     // Update chunk map.
-
     // Loaded area's outermost ring's chunks are NOT neighbour set.
-    World_Chunk* loading_area[World_LOADING_DIAMETER][World_LOADING_DIAMETER];
+    const int loading_distance = static_cast<int>(GetLoadingDistance());
+    const int loading_diameter = static_cast<int>(GetLoadingDiameter());
+
+    std::vector<World_Chunk*> loading_area(loading_diameter * loading_diameter, nullptr);
+
+    auto index_of = [loading_diameter](int i, int j) { return i * loading_diameter + j; };
 
     // Chunks that are not in loaded area are allocated in ChunkMap.
     {
         std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
 
-        for (int ix = m_CurrentCenterID.x - World_LOADING_RADIUS, ax = 0; ix <= m_CurrentCenterID.x + World_LOADING_RADIUS; ++ix, ++ax)
+        for (int ix = m_CurrentChunkID.x - loading_distance, ax = 0; ix <= m_CurrentChunkID.x + loading_distance; ++ix, ++ax)
         {
-            for (int iz = m_CurrentCenterID.z - World_LOADING_RADIUS, az = 0; iz <= m_CurrentCenterID.z + World_LOADING_RADIUS; ++iz, ++az)
+            for (int iz = m_CurrentChunkID.z - loading_distance, az = 0; iz <= m_CurrentChunkID.z + loading_distance; ++iz, ++az)
             {
-                World_ChunkID id{ ix, 0, iz };
+                World_Chunk_ID id{ ix, 0, iz };
+
+                auto& slot = loading_area[index_of(ax, az)];
 
                 if (auto iter = m_ChunkMap.find(id); iter == m_ChunkMap.end())
                 {
@@ -55,35 +64,35 @@ void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
 
                     new_chunk->Storage = std::make_unique<World_Chunk_Storage>();
 
-                    loading_area[ax][az] = new_chunk.get();
+                    slot = new_chunk.get();
 
                     m_ChunkMap.emplace(id, std::move(new_chunk));
                 }
                 else
                 {
-                    loading_area[ax][az] = iter->second.get();
+                    slot = iter->second.get();
                 }
             }
         }
     }
 
     // Associate neighbours for non-outermost ring chunks.
-    for (int i = 1; i < World_LOADING_DIAMETER - 1; ++i)
+    for (int i = 1; i < loading_diameter - 1; ++i)
     {
-        for (int j = 1; j < World_LOADING_DIAMETER - 1; ++j)
+        for (int j = 1; j < loading_diameter - 1; ++j)
         {
-            auto c = loading_area[i][j];
+            auto c = loading_area[index_of(i,j)];
 
             if (c->NeighboursSet.load(std::memory_order_relaxed)) continue;
 
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0] = loading_area[i - 1][j];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0] = loading_area[i + 1][j];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN] = loading_area[i][j - 1];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP] = loading_area[i][j + 1];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZN] = loading_area[i - 1][j - 1];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZN] = loading_area[i + 1][j - 1];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZP] = loading_area[i - 1][j + 1];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZP] = loading_area[i + 1][j + 1];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0] = loading_area[index_of(i - 1, j    )];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0] = loading_area[index_of(i + 1, j    )];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN] = loading_area[index_of(i    , j - 1)];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP] = loading_area[index_of(i    , j + 1)];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZN] = loading_area[index_of(i - 1, j - 1)];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZN] = loading_area[index_of(i + 1, j - 1)];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZP] = loading_area[index_of(i - 1, j + 1)];
+            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZP] = loading_area[index_of(i + 1, j + 1)];
 
             c->NeighboursSet.store(true, std::memory_order_release);
         }
@@ -94,10 +103,10 @@ void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
     {
         std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
 
-        for (int i = 3; i < World_LOADING_DIAMETER - 3; ++i)
-        for (int j = 3; j < World_LOADING_DIAMETER - 3; ++j)
+        for (int i = 3; i < loading_diameter - 3; ++i)
+        for (int j = 3; j < loading_diameter - 3; ++j)
         {
-            World_Chunk* c = loading_area[i][j];
+            World_Chunk* c = loading_area[index_of(i, j)];
             if (c->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::MeshingInProgress)
                 EnqueueDedupJob_ThreadUnsafe({ c, JobType::Meshing });
         }
@@ -106,17 +115,19 @@ void World_ChunkManager::SetCenterChunkMainThread(World_ChunkID center_id)
     m_JobQueueCond.notify_one();
 }
 
-std::vector<World_Chunk*> World_ChunkManager::GetChunksInRenderArea() const
+std::vector<World_Chunk*> World_ChunkManager::GetChunksInRenderArea_MainThread() const
 {
     std::vector<World_Chunk*> chunks_to_render;
 
     {
         std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
 
-        for (int ix = m_CurrentCenterID.x - World_LOADING_RADIUS + 3; ix <= m_CurrentCenterID.x + World_LOADING_RADIUS - 3; ++ix)
-        for (int iz = m_CurrentCenterID.z - World_LOADING_RADIUS + 3; iz <= m_CurrentCenterID.z + World_LOADING_RADIUS - 3; ++iz)
+        const int loading_distance = static_cast<int>(GetLoadingDistance());
+
+        for (int ix = m_CurrentChunkID.x - loading_distance + 3; ix <= m_CurrentChunkID.x + loading_distance - 3; ++ix)
+        for (int iz = m_CurrentChunkID.z - loading_distance + 3; iz <= m_CurrentChunkID.z + loading_distance - 3; ++iz)
         {
-            if (auto iter = m_ChunkMap.find(World_ChunkID(ix, 0, iz)); iter != m_ChunkMap.end())
+            if (auto iter = m_ChunkMap.find(World_Chunk_ID(ix, 0, iz)); iter != m_ChunkMap.end())
             {
                 chunks_to_render.push_back(iter->second.get());
             }
@@ -138,6 +149,21 @@ std::optional<const World_Chunk*> World_ChunkManager::GetChunkAt(World_GlobalXYZ
     {
         return std::nullopt;
     }
+}
+
+void World_ChunkManager::SetRenderDistance(std::size_t render_distance)
+{
+    m_RenderDistance = std::clamp<std::size_t>(render_distance, 2, 32);
+}
+
+std::size_t World_ChunkManager::GetLoadingDistance() const
+{
+    return m_RenderDistance + 3;
+}
+
+std::size_t World_ChunkManager::GetLoadingDiameter() const
+{
+    return GetLoadingDistance() * 2 + 1;
 }
 
 void World_ChunkManager::JobLoop()

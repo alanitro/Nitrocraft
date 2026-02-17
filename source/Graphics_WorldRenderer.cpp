@@ -28,8 +28,8 @@ namespace
 
     Graphics_Shader ChunkShader;
 
-    std::vector<World_ChunkID> GPUMeshIDsToRender;
-    std::unordered_map<World_ChunkID, ChunkGPUMeshHandle> GPUMeshHandleMap;
+    std::vector<World_Chunk_ID> GPUMeshIDsToRender;
+    std::unordered_map<World_Chunk_ID, ChunkGPUMeshHandle> GPUMeshHandleMap;
 
     void UploadCPUMeshToGPU(World_Chunk* chunk);
     void LoadTexture();
@@ -120,7 +120,7 @@ namespace
 {
     void UploadCPUMeshToGPU(World_Chunk* chunk)
     {
-        World_ChunkID chunk_id = chunk->ID;
+        World_Chunk_ID chunk_id = chunk->ID;
         World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk_id);
 
         // If the chunk has completed cpu mesh -> delete the old gpu mesh handle, if it exists.

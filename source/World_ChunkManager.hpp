@@ -19,22 +19,29 @@ public:
     ~World_ChunkManager();
 
     // Called from main thread per frame.
-    void SetCenterChunkMainThread(World_ChunkID center_id);
+    void SetCenterChunk_MainThread(World_Chunk_ID center_id);
 
-    std::vector<World_Chunk*> GetChunksInRenderArea() const;
+    std::vector<World_Chunk*> GetChunksInRenderArea_MainThread() const;
 
     // Queries
-    std::size_t GetWorkerThreadCount() const { return m_WorkerCount; }
-    std::size_t GetLoadedChunkCount() const { std::lock_guard<std::mutex> lock{ m_ChunkMapMutex }; return m_ChunkMap.size(); };
+    std::size_t GetRenderDistance()     const { return m_RenderDistance; }
+    std::size_t GetWorkerThreadCount()  const { return m_WorkerCount; }
+    std::size_t GetLoadedChunkCount()   const { std::lock_guard<std::mutex> lock{ m_ChunkMapMutex }; return m_ChunkMap.size(); };
 
     std::optional<const World_Chunk*> GetChunkAt(World_GlobalXYZ global) const;
 
-    // TODO: Modifiers
+    // Modifiers
+    void SetRenderDistance(std::size_t render_distance);
 
 private:
-    World_ChunkID m_CurrentCenterID{ -1, -1, -1 };
+    std::size_t m_RenderDistance = 6;
 
-    std::unordered_map<World_ChunkID, std::unique_ptr<World_Chunk>> m_ChunkMap;
+    std::size_t GetLoadingDistance() const;
+    std::size_t GetLoadingDiameter() const;
+
+    World_Chunk_ID m_CurrentChunkID{ -1, -1, -1 };
+
+    std::unordered_map<World_Chunk_ID, std::unique_ptr<World_Chunk>> m_ChunkMap;
     mutable std::mutex m_ChunkMapMutex;
 
     // Chunk construction job system

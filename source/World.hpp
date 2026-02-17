@@ -24,4 +24,6 @@ const World_Chunk*      World_GetChunkAt(World_GlobalXYZ global);
 
 const World_ChunkManager& World_GetChunkManager();
 
+void World_SetRenderDistance(std::size_t render_distance);
+
 std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length);

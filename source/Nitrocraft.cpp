@@ -15,14 +15,18 @@
 
 namespace
 {
-enum State
+enum Nitrocraft_State
 {
     INACTIVE,
     ACTIVE,
     PAUSE,
 };
 
+Nitrocraft_State State = Nitrocraft_State::INACTIVE;
+
 float PlayerSpeed = 10.0f;
+
+int RenderDistance = 6;
 
 GLFWwindow* InitializeGLFWAndOpenGLContext()
 {
@@ -91,6 +95,7 @@ GLFWwindow* InitializeGLFWAndOpenGLContext()
                 static bool flip = false;
                 glfwSetInputMode(window, GLFW_CURSOR, flip ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
                 flip = flip ? false : true;
+                State = flip ? Nitrocraft_State::PAUSE : Nitrocraft_State::ACTIVE;
             }
         }
     );
@@ -122,23 +127,27 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
 
     //// Get delta rotation
-    static double prev_xpos, prev_ypos;
-    double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos);
-    glm::vec2 delta_rotation;
-    if (first_loop)
+    glm::vec2 delta_rotation(0.0f);
+    if (State == Nitrocraft_State::ACTIVE)
     {
-        delta_rotation = glm::vec2(0);
-        first_loop = false;
+        static double prev_xpos, prev_ypos;
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+
+        if (first_loop)
+        {
+            delta_rotation = glm::vec2(0);
+            first_loop = false;
+        }
+        else
+        {
+            float xoffset = static_cast<float>((xpos - prev_xpos) / 1000.0);
+            float yoffset = static_cast<float>((ypos - prev_ypos) / 1000.0);
+            delta_rotation = glm::vec2(xoffset, -yoffset);
+        }
+        prev_xpos = xpos;
+        prev_ypos = ypos;
     }
-    else
-    {
-        float xoffset = static_cast<float>((xpos - prev_xpos) / 1000.0);
-        float yoffset = static_cast<float>((ypos - prev_ypos) / 1000.0);
-        delta_rotation = glm::vec2(xoffset, -yoffset);
-    }
-    prev_xpos = xpos;
-    prev_ypos = ypos;
 
     //// Recalculate camera
     camera.Calculate(delta_position, delta_rotation);
@@ -197,7 +206,7 @@ void Nitrocraft_Run()
 
     bool is_running = true;
 
-    State state = State::ACTIVE;
+    State = Nitrocraft_State::ACTIVE;
 
     Timer timer;
 
@@ -225,13 +234,13 @@ void Nitrocraft_Run()
 
         if (glfwWindowShouldClose(window)) is_running = false;
 
-        if (state == State::ACTIVE) RecalculateCamera(camera, window, timer.Elapsed());
+        RecalculateCamera(camera, window, timer.Elapsed());
 
         timer.Reset();
 
         World_Update(camera);
 
-        WorldRenderer_PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea());
+        WorldRenderer_PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea_MainThread());
 
         auto raycast_result_opt = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
 
@@ -247,7 +256,7 @@ void Nitrocraft_Run()
             ImGui::Text(" ");
 
             constexpr const char* state_names[3]{ "Inactive", "Active", "Pause" };
-            ImGui::Text("State : %s", state_names[(int)state]);
+            ImGui::Text("State : %s", state_names[(int)State]);
             ImGui::Text(" ");
 
             ImGui::Text("X Position : %.2f", camera.GetPosition().x);
@@ -284,12 +293,20 @@ void Nitrocraft_Run()
             );
             ImGui::Text(
                 "Selected Face: %s",
-                raycast_result_opt.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (int)raycast_result_opt.value().second * 3 : "None"
+                raycast_result_opt.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (std::intptr_t)raycast_result_opt.value().second * 3 : "None"
             );
             ImGui::Text(" ");
 
+            ImGui::Text("Movement Speed:");
+            ImGui::SliderFloat("##a", &PlayerSpeed, 1.0f, 100.0f);
+
+            ImGui::Text("Render Distance:");
+            ImGui::SliderInt("##b", &RenderDistance, 2, 32);
+            World_SetRenderDistance(RenderDistance);
+
+            ImGui::Text("Wireframe mode:");
             static bool line_mode = false;
-            ImGui::Checkbox(" Line Mode", &line_mode);
+            ImGui::Checkbox("##c", &line_mode);
             if (line_mode)
             {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -298,9 +315,6 @@ void Nitrocraft_Run()
             {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
-            ImGui::Text(" ");
-
-            ImGui::SliderFloat(" Speed", &PlayerSpeed, 1.0f, 100.0f);
             ImGui::Text(" ");
         }
         ImGui::End();
