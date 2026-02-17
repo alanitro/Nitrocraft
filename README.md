@@ -15,23 +15,28 @@ cmake --build ./build --config [Release|Debug]
 ```
 
 ## Features
-- [x] Infinite terrain generation
+- [x] Infinite procedural terrain generation
+- [x] Multithreaded chunk generation
 - [x] Spaghetti/Cheese cave generation
 - [x] Flood fill lighting
 - [x] Day/Night cycle
-- [x] Multithreaded chunk generation
 - [ ] Block placement/removal
 - [ ] Basic GUI
 - [ ] Collision detection
 - [ ] Frustum culling
 - [ ] Ambient occlusion
 - [ ] Smooth lighting
+- [ ] Greedy Meshing
 
 ## Controls
-- `WASD` for xz-plane movement
+- `W` to move forward
+- `D` to move backward
+- `A` to move left
+- `S` to move right
 - `SPACE` to ascend
 - `LEFT-CTRL` to descend
 - `LEFT-SHIFT` to sprint
+- `ESCAPE` to change active/pause state
 
 ## Learning Resource (Resources I came across)
 - C++:\

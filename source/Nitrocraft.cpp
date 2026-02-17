@@ -114,26 +114,29 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
 {
     static bool first_loop = true;
 
-    //// Get delta position
-    glm::vec3 delta_position{};
-    float speed = PlayerSpeed;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)    speed *= 5.0f;
-    float delta_speed = speed * static_cast<float>(delta_time);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)             delta_position += camera.GetLeft() * delta_speed;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)             delta_position += camera.GetRight() * delta_speed;
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)         delta_position += glm::vec3(0.0f, 1.0f, 0.0f) * delta_speed;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  delta_position += glm::vec3(0.0f, -1.0f, 0.0f) * delta_speed;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)             delta_position += camera.GetBack() * delta_speed;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
+    glm::vec3 delta_position(0.0f);
+
+    if (State == Nitrocraft_State::ACTIVE)
+    {
+        //// Get delta position
+        float speed = PlayerSpeed;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)    speed *= 2.0f;
+        float delta_speed = speed * static_cast<float>(delta_time);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)             delta_position += camera.GetLeft() * delta_speed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)             delta_position += camera.GetRight() * delta_speed;
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)         delta_position += glm::vec3(0.0f, 1.0f, 0.0f) * delta_speed;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  delta_position += glm::vec3(0.0f, -1.0f, 0.0f) * delta_speed;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)             delta_position += camera.GetBack() * delta_speed;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)             delta_position += camera.GetFront() * delta_speed;
+    }
 
     //// Get delta rotation
     glm::vec2 delta_rotation(0.0f);
+    static double prev_xpos, prev_ypos;
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
     if (State == Nitrocraft_State::ACTIVE)
     {
-        static double prev_xpos, prev_ypos;
-        double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
-
         if (first_loop)
         {
             delta_rotation = glm::vec2(0);
@@ -145,6 +148,11 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
             float yoffset = static_cast<float>((ypos - prev_ypos) / 1000.0);
             delta_rotation = glm::vec2(xoffset, -yoffset);
         }
+        prev_xpos = xpos;
+        prev_ypos = ypos;
+    }
+    else
+    {
         prev_xpos = xpos;
         prev_ypos = ypos;
     }
