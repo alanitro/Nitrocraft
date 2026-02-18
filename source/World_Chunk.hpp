@@ -30,8 +30,9 @@ struct World_Chunk_CPUMeshVertex
     float        Z;
     float        S; // Texture coordinate (s,t)
     float        T;
-    std::uint8_t F; // Face
-    std::uint8_t L; // Light
+    std::uint8_t F;  // Face
+    std::uint8_t L;  // Light
+    std::uint8_t AO; // Ambient Occlusion Level [0,3]
 };
 
 struct World_Chunk_CPUMesh
@@ -125,6 +126,11 @@ struct World_Chunk
     int  GetMaxHeight() const;
     void SetHeightAt(int local_x, int local_z, std::uint8_t height);
 
-    std::array<World_Block, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> GetNeighbourBlocksAt(World_LocalXYZ local) const;
-    std::array<World_Light, static_cast<std::size_t>(World_Block_Neighbour::COUNT)> GetNeighbourLightsAt(World_LocalXYZ local) const;
+    std::array<World_Block, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
+        GetCrossNeighbourBlocksAt(World_LocalXYZ local) const;
+    std::array<World_Light, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
+        GetCrossNeighbourLightsAt(World_LocalXYZ local) const;
+
+    std::array<World_Block, static_cast<std::size_t>(World_Block_WholeNeighbour::Count)>
+        GetWholeNeighbourBlocksAt(World_LocalXYZ local) const;
 };

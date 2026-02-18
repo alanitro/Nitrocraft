@@ -1,7 +1,7 @@
 #version 460 core
 
-in      vec2  v_TextureCoordinate;
-in flat float v_Light;
+in vec2  v_TextureCoordinate;
+in float v_Light;
 
 out vec4 f_Color;
 

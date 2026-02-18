@@ -152,10 +152,12 @@ namespace
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, S)));
             glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, F)));
             glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, L)));
+            glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, sizeof(World_Chunk_CPUMeshVertex), reinterpret_cast<const void*>(offsetof(World_Chunk_CPUMeshVertex, AO)));
             glEnableVertexAttribArray(0);
             glEnableVertexAttribArray(1);
             glEnableVertexAttribArray(2);
             glEnableVertexAttribArray(3);
+            glEnableVertexAttribArray(4);
 
             gpumesh_handle.IndicesCount = 0;
 

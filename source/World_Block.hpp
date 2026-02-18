@@ -21,13 +21,42 @@ enum class World_Block_ID : std::uint8_t
     COUNT,
 };
 
-enum class World_Block_Neighbour
+enum class World_Block_CrossNeighbour
 {
     XN, XP,
     YN, YP,
     ZN, ZP,
 
-    COUNT = 6,
+    Count = 6,
+};
+
+enum class World_Block_WholeNeighbour
+{
+    // Faces (6): one-axis offsets
+    XnYoZo, XpYoZo,
+    XoYnZo, XoYpZo,
+    XoYoZn, XoYoZp,
+
+    // Edges (12): two-axis offsets
+    // XZ edges (y = 0)
+    XnYoZn, XpYoZn,
+    XnYoZp, XpYoZp,
+
+    // YZ edges (x = 0)
+    XoYnZn, XoYpZn,
+    XoYnZp, XoYpZp,
+
+    // XY edges (z = 0)
+    XnYnZo, XpYnZo, 
+    XnYpZo, XpYpZo,
+
+    // Corners (8): three-axis offsets
+    XnYnZn, XpYnZn,
+    XnYpZn, XpYpZn,
+    XnYnZp, XpYnZp,
+    XnYpZp, XpYpZp,
+
+    Count,
 };
 
 enum class World_Block_Face

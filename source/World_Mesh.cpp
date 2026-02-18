@@ -8,6 +8,7 @@
 
 namespace
 {
+    // Front face quad vertices are laid out in counter clock wise order.
     constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_Block_Face::COUNT)> BLOCK_FACES
     {
         std::array<float, 12>
@@ -83,74 +84,237 @@ namespace
     };
 }
 
-
 void World_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, World_Chunk_CPUMesh& mesh)
 {
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
-    for (int z = 0; z < World_CHUNK_Z_SIZE; z++)
+    for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
+    for (int lx = 0; lx < World_CHUNK_X_SIZE; lx++)
+    for (int ly = 0; ly < World_CHUNK_Y_SIZE; ly++)
     {
-        for (int x = 0; x < World_CHUNK_X_SIZE; x++)
+        // Block face detection
+        World_Block block = chunk->GetBlockAt(World_LocalXYZ(lx, ly, lz));
+
+        if (block.ID == World_Block_ID::AIR) continue;
+
+        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(World_LocalXYZ(lx, ly, lz));
+
+        std::uint32_t blockface_bitmask = 0;
+
+        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
         {
-            for (int y = 0; y < World_CHUNK_Y_SIZE; y++)
+            if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
+        }
+
+        if (blockface_bitmask == 0) continue;
+
+        // Chunk Mesh generation
+        World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(lx, ly, lz);
+
+        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(World_LocalXYZ(lx, ly, lz));
+
+        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        {
+            if (!(blockface_bitmask & (1u << face))) continue;
+
+            // Populate vertices 
+            const auto& block_face = BLOCK_FACES[(std::size_t)face];
+
+            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
+
+            for (int vi = 0; vi < 4; vi++)
             {
-                // Block face detection
-                World_Block block = chunk->GetBlockAt(World_LocalXYZ(x, y, z));
+                int vertex_base = vi * 3;
 
-                if (block.ID == World_Block_ID::AIR) continue;
+                constexpr float w = 1.0f / 16.0f;
 
-                auto neighbour_blocks = chunk->GetNeighbourBlocksAt(World_LocalXYZ(x, y, z));
+                mesh.Vertices.emplace_back(
+                    block_face[vertex_base + 0] + block_offset.x,
+                    block_face[vertex_base + 1] + block_offset.y,
+                    block_face[vertex_base + 2] + block_offset.z,
+                    tile_map_offset.x + ((vi == 1 || vi == 2) ? w : 0.0f),
+                    tile_map_offset.y + ((vi == 2 || vi == 3) ? w : 0.0f),
+                    static_cast<std::uint8_t>(face),
+                    static_cast<std::uint8_t>(neighbour_lights[face])
+                );
+            }
 
-                std::uint32_t blockface_bitmask = 0;
-
-                for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+            // Populate indices
+            std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
+            mesh.Indices.insert(
+                mesh.Indices.end(),
                 {
-                    if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
+                    base_index + 0, base_index + 1, base_index + 2,
+                    base_index + 0, base_index + 2, base_index + 3
                 }
+            );
+        }
+    }
+}
 
-                if (blockface_bitmask == 0) continue;
+namespace
+{
+    // AO Values
+    float AOValues[] = { 0.1f, 0.25f, 0.5f, 1.0f };
 
-                // Chunk Mesh generation
-                World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(x, y, z);
+    // [0,4): quad vertex index. 0 -> 1 -> 2 and 0 -> 2 -> 3 (front face quad counter clockwise)
+    // 3 --- 2
+    // |     |    <- front face
+    // 0 --- 1
+    // [0, 3): 0==side1, 1==side2, 2==corner
+    constexpr int NeighbourBlockIndicesPerFaceVertex[(std::size_t)World_Block_Face::COUNT][4][3] =
+    {
+        // Face XN
+        {
+            { 6, 14, 18 }, // { non, nno, nnn }
+            { 14, 8, 22 }, // { nno, nop, nnp }
+            { 8, 16, 24 }, // { nop, npo, npp }
+            { 6, 16, 20 }, // { non, npo, npn }
+        },
 
-                auto neighbour_lights = chunk->GetNeighbourLightsAt(World_LocalXYZ(x, y, z));
+        // Face XP
+        {
+            { 9, 15, 23 }, // { pop, pno, pnp }
+            { 7, 15, 19 }, // { pon, pno, pnn }
+            { 7, 17, 21 }, // { pon, ppo, ppn }
+            { 9, 17, 25 }, // { pop, ppo, ppp }
+        },
 
-                for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
-                {
-                    if (!(blockface_bitmask & (1u << face))) continue;
+        // Face YN
+        {
+            { 14, 10, 18 }, // { nno, onn, nnn }
+            { 15, 10, 19 }, // { pno, onn, pnn }
+            { 15, 12, 23 }, // { pno, onp, pnp }
+            { 14, 12, 22 }, // { nno, onp, nnp }
+        },
 
-                    // Populate vertices 
-                    const auto& block_face = BLOCK_FACES[(std::size_t)face];
+        // Face YP
+        {
+            { 16, 13, 24 }, // { npo, opp, npp }
+            { 17, 13, 25 }, // { ppo, opp, ppp }
+            { 17, 11, 21 }, // { ppo, opn, ppn }
+            { 16, 11, 20 }, // { npo, opn, npn }
+        },
 
-                    glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
+        // Face ZN
+        {
+            { 7, 10, 19 }, // { pon, onn, pnn }
+            { 6, 10, 18 }, // { non, onn, nnn }
+            { 6, 11, 20 }, // { non, opn, npn }
+            { 7, 11, 21 }, // { pon, opn, ppn }
+        },
 
-                    for (int i = 0; i < 4; i++)
+        // Face ZP
+        {
+            { 8, 12, 22 }, // { nop, onp, nnp }
+            { 9, 12, 23 }, // { pop, onp, pnp }
+            { 9, 13, 25 }, // { pop, opp, ppp }
+            { 8, 13, 24 }, // { nop, opp, npp }
+        },
+    };
+
+    constexpr int GetAOState(int side1, int side2, int corner)
+    {
+        if (side1 && side2) return 0;
+
+        return 3 - (side1 + side2 + corner);
+    }
+}
+
+void World_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, World_Chunk_CPUMesh& mesh)
+{
+    World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
+
+    for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
+    for (int lx = 0; lx < World_CHUNK_X_SIZE; lx++)
+    for (int ly = 0; ly < World_CHUNK_Y_SIZE; ly++)
+    {
+        // Block face detection
+        World_Block block = chunk->GetBlockAt(World_LocalXYZ(lx, ly, lz));
+
+        if (block.ID == World_Block_ID::AIR) continue;
+
+        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(World_LocalXYZ(lx, ly, lz));
+
+        std::uint32_t blockface_bitmask = 0;
+
+        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        {
+            if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
+        }
+
+        if (blockface_bitmask == 0) continue;
+
+        // Chunk mesh generation
+        World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(lx, ly, lz);
+
+        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(World_LocalXYZ(lx, ly, lz));
+
+        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        {
+            if (!(blockface_bitmask & (1u << face))) continue;
+
+            // Populate vertices 
+            const auto& block_face = BLOCK_FACES[(std::size_t)face];
+
+            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
+
+            int ao_states[4];
+
+            for (int vi = 0; vi < 4; vi++)
+            {
+                int vertex_base = vi * 3;
+
+                constexpr float w = 1.0f / 16.0f;
+
+                int side1_block_index  = NeighbourBlockIndicesPerFaceVertex[face][vi][0];
+                int side2_block_index  = NeighbourBlockIndicesPerFaceVertex[face][vi][1];
+                int corner_block_index = NeighbourBlockIndicesPerFaceVertex[face][vi][2];
+
+                World_Block side1  = neighbour_blocks[side1_block_index];
+                World_Block side2  = neighbour_blocks[side2_block_index];
+                World_Block corner = neighbour_blocks[corner_block_index];
+
+                ao_states[vi] = GetAOState(
+                    side1.IsOpaque()  ? 1 : 0,
+                    side2.IsOpaque()  ? 1 : 0,
+                    corner.IsOpaque() ? 1 : 0
+                );
+
+                mesh.Vertices.emplace_back(
+                    block_face[vertex_base + 0] + block_offset.x,
+                    block_face[vertex_base + 1] + block_offset.y,
+                    block_face[vertex_base + 2] + block_offset.z,
+                    tile_map_offset.x + ((vi == 1 || vi == 2) ? w : 0.0f),
+                    tile_map_offset.y + ((vi == 2 || vi == 3) ? w : 0.0f),
+                    static_cast<std::uint8_t>(face),
+                    static_cast<std::uint8_t>(neighbour_lights[face]),
+                    static_cast<std::uint8_t>(ao_states[vi])
+                );
+            }
+
+            // Populate indices
+            std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
+
+            if (ao_states[1] + ao_states[3] <= ao_states[0] + ao_states[2])
+            {
+                mesh.Indices.insert(
+                    mesh.Indices.end(),
                     {
-                        int vertex_base = i * 3;
-
-                        constexpr float w = 1.0f / 16.0f;
-
-                        mesh.Vertices.emplace_back(
-                            block_face[vertex_base + 0] + block_offset.x,
-                            block_face[vertex_base + 1] + block_offset.y,
-                            block_face[vertex_base + 2] + block_offset.z,
-                            tile_map_offset.x + ((i == 1 || i == 2) ? w : 0.0f),
-                            tile_map_offset.y + ((i == 2 || i == 3) ? w : 0.0f),
-                            static_cast<std::uint8_t>(face),
-                            static_cast<std::uint8_t>(neighbour_lights[face])
-                        );
+                        base_index + 0, base_index + 1, base_index + 2,
+                        base_index + 0, base_index + 2, base_index + 3,
                     }
-
-                    // Populate indices
-                    std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
-                    mesh.Indices.insert(
-                        mesh.Indices.end(),
-                        {
-                            base_index + 0, base_index + 1, base_index + 2,
-                            base_index + 0, base_index + 2, base_index + 3
-                        }
-                    );
-                }
+                );
+            }
+            else
+            {
+                mesh.Indices.insert(
+                    mesh.Indices.end(),
+                    {
+                        base_index + 0, base_index + 1, base_index + 3,
+                        base_index + 1, base_index + 2, base_index + 3,
+                    }
+                );
             }
         }
     }

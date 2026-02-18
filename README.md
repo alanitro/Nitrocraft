@@ -57,5 +57,8 @@ https://www.manning.com/books/c-plus-plus-concurrency-in-action-second-edition
 - Voxel lighting:\
 <https://www.reddit.com/r/gamedev/comments/2iru8i/fast_flood_fill_lighting_in_a_blocky_voxel_game/>\
 <https://www.reddit.com/r/gamedev/comments/2k7gxt/fast_flood_fill_lighting_in_a_blocky_voxel_game/>
+- Voxel ambient occlusion:\
+<https://0fps.net/2013/07/03/ambient-occlusion-for-minecraft-like-worlds/>\
+<https://medium.com/@andrebluntindie/vertex-ambient-occlusion-for-voxel-games-the-principle-and-implementation-e5340bd62845>
 - Voxel raycasting:\
 <https://gamedev.stackexchange.com/questions/47362/cast-ray-to-select-block-in-voxel-game>
