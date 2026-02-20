@@ -1,4 +1,4 @@
-#include "World_Mesh.hpp"
+#include "Graphics_Mesh.hpp"
 
 #include <cstdint>
 #include <array>
@@ -84,7 +84,7 @@ namespace
     };
 }
 
-void World_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, World_Chunk_CPUMesh& mesh)
+void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh)
 {
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
@@ -221,7 +221,7 @@ namespace
     }
 }
 
-void World_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, World_Chunk_CPUMesh& mesh)
+void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh)
 {
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
@@ -318,4 +318,56 @@ void World_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, 
             }
         }
     }
+}
+
+Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle(std::uint32_t storage_version)
+{
+    Version = storage_version;
+
+    glGenVertexArrays(1, &VertexArrayID);
+    glGenBuffers(1, &VertexBufferID);
+    glGenBuffers(1, &IndexBufferID);
+
+    glBindVertexArray(VertexArrayID);
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, X)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, S)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, F)));
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, L)));
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, AO)));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+
+    IndicesCount = 0;
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
+{
+    glDeleteVertexArrays(1, &VertexArrayID);
+    glDeleteBuffers(1, &VertexBufferID);
+    glDeleteBuffers(1, &IndexBufferID);
+}
+
+void Graphics_ChunkGPUMeshHandle::UploadCPUMeshToGPU(const Graphics_ChunkCPUMesh& cpumesh)
+{
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+
+    // TODO: use buffer orphaning instead of recreating new buffer
+    glBufferData(GL_ARRAY_BUFFER, cpumesh.Vertices.size() * sizeof(Graphics_ChunkCPUMeshVertexLayout), cpumesh.Vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cpumesh.Indices.size() * sizeof(std::uint32_t), cpumesh.Indices.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    IndicesCount = static_cast<std::uint32_t>(cpumesh.Indices.size());
 }

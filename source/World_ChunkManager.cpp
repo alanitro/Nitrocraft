@@ -3,7 +3,6 @@
 #include <algorithm>
 #include "World_Generation.hpp"
 #include "World_Light.hpp"
-#include "World_Mesh.hpp"
 
 World_ChunkManager::World_ChunkManager()
 {
@@ -378,7 +377,7 @@ void World_ChunkManager::MeshingJobHandler(World_Chunk* chunk)
     chunk->CPUMesh.Vertices.clear();
     chunk->CPUMesh.Indices.clear();
 
-    World_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk, chunk->CPUMesh);
+    Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk, chunk->CPUMesh);
 
     chunk->Stage.store(World_Chunk_Stage::MeshingComplete, std::memory_order_release);
 }

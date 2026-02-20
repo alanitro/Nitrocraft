@@ -22,13 +22,13 @@ add_executable(${PROJECT_NAME}
     source/World_Generation.cpp
     source/World_Light.hpp
     source/World_Light.cpp
-    source/World_Mesh.hpp
-    source/World_Mesh.cpp
 
     source/Graphics_Camera.hpp
     source/Graphics_Camera.cpp
     source/Graphics_Shader.hpp
     source/Graphics_Shader.cpp
+    source/Graphics_Mesh.hpp
+    source/Graphics_Mesh.cpp
     source/Graphics_WorldRenderer.hpp
     source/Graphics_WorldRenderer.cpp
     source/Graphics_BlockOutlineRenderer.hpp

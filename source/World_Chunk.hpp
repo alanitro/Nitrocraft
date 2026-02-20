@@ -8,7 +8,7 @@
 #include "World_Coordinate.hpp"
 #include "World_Block.hpp"
 #include "World_Light.hpp"
-#include "World_Mesh.hpp"
+#include "Graphics_Mesh.hpp"
 #include "Utility_Array2D.hpp"
 #include "Utility_Array3D.hpp"
 
@@ -108,7 +108,7 @@ struct World_Chunk
     // Worker threads will populate CPUMesh, when Stage==Meshing.
     // Main threads MUST ONLY read/move the CPUMesh when Stage==MeshingComplete.
     // After moving out the CPUMesh for uploading to GPU VBO/IBO, Stage==Ready.
-    World_Chunk_CPUMesh CPUMesh;
+    struct Graphics_ChunkCPUMesh CPUMesh;
 
     explicit World_Chunk(World_Chunk_ID id) : ID{ id } {}
 
