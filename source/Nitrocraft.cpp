@@ -28,6 +28,8 @@ float PlayerSpeed = 10.0f;
 
 int RenderDistance = 6;
 
+Graphics_WorldRenderer WorldRenderer;
+
 GLFWwindow* InitializeGLFWAndOpenGLContext()
 {
     GLFWwindow* window = nullptr;
@@ -225,7 +227,7 @@ void Nitrocraft_Run()
 
     Graphics_BlockOutlineRenderer_Initialize();
 
-    Graphics_WorldRenderer_Initialize();
+    WorldRenderer.Initialize();
 
     World_Initialize();
 
@@ -248,7 +250,7 @@ void Nitrocraft_Run()
 
         World_Update(camera);
 
-        WorldRenderer_PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea_MainThread());
+        WorldRenderer.PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea_MainThread());
 
         auto raycast_result_opt = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
 
@@ -330,7 +332,7 @@ void Nitrocraft_Run()
         //// Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        WorldRenderer_Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
+        WorldRenderer.Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
 
         if (raycast_result_opt.has_value())
         {
@@ -349,7 +351,7 @@ void Nitrocraft_Run()
     // Terminate
     World_Terminate();
 
-    WorldRenderer_Terminate();
+    WorldRenderer.Terminate();
 
     ImGUI_Terminate();
     

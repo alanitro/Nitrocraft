@@ -50,7 +50,6 @@ private:
         Generation,
         LocalLighting,
         NeighbourLighting,
-        Meshing,
     };
 
     static constexpr std::uint8_t JobBit(JobType type)
@@ -80,5 +79,5 @@ private:
     void GenerationJobHandler(World_Chunk* chunk);
     void LocalLightingJobHandler(World_Chunk* chunk);
     void NeighbourLightingJobHandler(World_Chunk* chunk);
-    void MeshingJobHandler(World_Chunk* chunk);
+    //void MeshingJobHandler(World_Chunk* chunk);
 };

@@ -23,24 +23,6 @@ struct World_Chunk_Storage
     World_Chunk_HeightData Heights;
 };
 
-struct World_Chunk_CPUMeshVertex
-{
-    float        X; // Vertex position (x,y,z)
-    float        Y;
-    float        Z;
-    float        S; // Texture coordinate (s,t)
-    float        T;
-    std::uint8_t F;  // Face
-    std::uint8_t L;  // Light
-    std::uint8_t AO; // Ambient Occlusion Level [0,3]
-};
-
-struct World_Chunk_CPUMesh
-{
-    std::vector<World_Chunk_CPUMeshVertex> Vertices;
-    std::vector<std::uint32_t>             Indices;
-};
-
 enum class World_Chunk_Neighbour
 {
     XNZ0,
@@ -74,14 +56,6 @@ enum class World_Chunk_Stage
     // This stage ensures that lights from neighbour chunks are also propagated into this chunk.
     NeighbourLightingInProgress,
     NeighbourLightingComplete,
-
-    // Stage==Meshing: Workers are generating CPUMesh for this chunk.
-    // For Meshing to start, the chunk must be in Stage==NeighbourLightingComplete.
-    MeshingInProgress,
-    MeshingComplete,
-
-    // Stage==Ready: This Chunk's CPUMesh is moved out by the main thread for uploading to GPU VBO/IBO.
-    Ready,
 };
 
 struct World_Chunk
@@ -105,11 +79,6 @@ struct World_Chunk
     std::unique_ptr<World_Chunk_Storage> Storage;
     std::atomic<int> StorageVersion = 0;
 
-    // Worker threads will populate CPUMesh, when Stage==Meshing.
-    // Main threads MUST ONLY read/move the CPUMesh when Stage==MeshingComplete.
-    // After moving out the CPUMesh for uploading to GPU VBO/IBO, Stage==Ready.
-    struct Graphics_ChunkCPUMesh CPUMesh;
-
     explicit World_Chunk(World_Chunk_ID id) : ID{ id } {}
 
     World_Block GetBlockAt(World_LocalXYZ local) const;
@@ -130,7 +99,6 @@ struct World_Chunk
         GetCrossNeighbourBlocksAt(World_LocalXYZ local) const;
     std::array<World_Light, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
         GetCrossNeighbourLightsAt(World_LocalXYZ local) const;
-
     std::array<World_Block, static_cast<std::size_t>(World_Block_WholeNeighbour::Count)>
         GetWholeNeighbourBlocksAt(World_LocalXYZ local) const;
 };

@@ -8,7 +8,7 @@ World_ChunkManager::World_ChunkManager()
 {
     m_ChunkMap.reserve(GetLoadingDiameter() * GetLoadingDiameter() * 8);
 
-    m_WorkerCount = std::clamp(std::thread::hardware_concurrency(), 1u, 8u);
+    m_WorkerCount = std::clamp<std::size_t>(std::thread::hardware_concurrency() / 2 - 1, 1u, 4u);
 
     m_Workers.reserve(m_WorkerCount);
     
@@ -106,8 +106,8 @@ void World_ChunkManager::SetCenterChunk_MainThread(World_Chunk_ID center_id)
         for (int j = 3; j < loading_diameter - 3; ++j)
         {
             World_Chunk* c = loading_area[index_of(i, j)];
-            if (c->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::MeshingInProgress)
-                EnqueueDedupJob_ThreadUnsafe({ c, JobType::Meshing });
+            if (c->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingInProgress)
+                EnqueueDedupJob_ThreadUnsafe({ c, JobType::NeighbourLighting });
         }
     }
 
@@ -194,10 +194,6 @@ void World_ChunkManager::JobLoop()
         else if (job.Type == JobType::NeighbourLighting)
         {
             NeighbourLightingJobHandler(job.Chunk);
-        }
-        else if (job.Type == JobType::Meshing)
-        {
-            MeshingJobHandler(job.Chunk);
         }
     }
 }
@@ -350,34 +346,36 @@ void World_ChunkManager::NeighbourLightingJobHandler(World_Chunk* chunk)
 
     // TODO: neighbour light propagation
 
+    chunk->StorageVersion.fetch_add(1, std::memory_order_relaxed);
+
     chunk->Stage.store(World_Chunk_Stage::NeighbourLightingComplete, std::memory_order_release);
 }
 
-void World_ChunkManager::MeshingJobHandler(World_Chunk* chunk)
-{
-    // Called chunk has to be in Stage==NeighbourLightingComplete.
-    if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingComplete)
-    {
-        {
-            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
-
-            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::NeighbourLighting});
-            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::Meshing});
-        }
-
-        m_JobQueueCond.notify_one();
-
-        return;
-    }
-
-    // Above condition ensures that the called chunk is in meshable state.
-    World_Chunk_Stage expected = World_Chunk_Stage::NeighbourLightingComplete;
-    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::MeshingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
-
-    chunk->CPUMesh.Vertices.clear();
-    chunk->CPUMesh.Indices.clear();
-
-    Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk, chunk->CPUMesh);
-
-    chunk->Stage.store(World_Chunk_Stage::MeshingComplete, std::memory_order_release);
-}
+//void World_ChunkManager::MeshingJobHandler(World_Chunk* chunk)
+//{
+//    // Called chunk has to be in Stage==NeighbourLightingComplete.
+//    if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingComplete)
+//    {
+//        {
+//            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+//
+//            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::NeighbourLighting});
+//            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::Meshing});
+//        }
+//
+//        m_JobQueueCond.notify_one();
+//
+//        return;
+//    }
+//
+//    // Above condition ensures that the called chunk is in meshable state.
+//    World_Chunk_Stage expected = World_Chunk_Stage::NeighbourLightingComplete;
+//    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::MeshingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
+//
+//    chunk->CPUMesh.Vertices.clear();
+//    chunk->CPUMesh.Indices.clear();
+//
+//    Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk, chunk->CPUMesh);
+//
+//    chunk->Stage.store(World_Chunk_Stage::MeshingComplete, std::memory_order_release);
+//}
