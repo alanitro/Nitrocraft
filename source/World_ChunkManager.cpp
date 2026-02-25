@@ -29,8 +29,8 @@ World_ChunkManager::~World_ChunkManager()
 
 void World_ChunkManager::SetCenterChunk_MainThread(World_Chunk_ID center_id)
 {
-    static std::size_t prev_render_distance = 6;
-    
+    static std::size_t prev_render_distance = m_RenderDistance;
+
     if (m_CurrentChunkID == center_id && prev_render_distance == m_RenderDistance) return;
 
     m_CurrentChunkID = center_id;
@@ -121,10 +121,8 @@ std::vector<World_Chunk*> World_ChunkManager::GetChunksInRenderArea_MainThread()
     {
         std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
 
-        const int loading_distance = static_cast<int>(GetLoadingDistance());
-
-        for (int ix = m_CurrentChunkID.x - loading_distance + 3; ix <= m_CurrentChunkID.x + loading_distance - 3; ++ix)
-        for (int iz = m_CurrentChunkID.z - loading_distance + 3; iz <= m_CurrentChunkID.z + loading_distance - 3; ++iz)
+        for (int ix = m_CurrentChunkID.x - static_cast<int>(m_RenderDistance); ix <= m_CurrentChunkID.x + static_cast<int>(m_RenderDistance); ++ix)
+        for (int iz = m_CurrentChunkID.z - static_cast<int>(m_RenderDistance); iz <= m_CurrentChunkID.z + static_cast<int>(m_RenderDistance); ++iz)
         {
             if (auto iter = m_ChunkMap.find(World_Chunk_ID(ix, 0, iz)); iter != m_ChunkMap.end())
             {
@@ -350,32 +348,3 @@ void World_ChunkManager::NeighbourLightingJobHandler(World_Chunk* chunk)
 
     chunk->Stage.store(World_Chunk_Stage::NeighbourLightingComplete, std::memory_order_release);
 }
-
-//void World_ChunkManager::MeshingJobHandler(World_Chunk* chunk)
-//{
-//    // Called chunk has to be in Stage==NeighbourLightingComplete.
-//    if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingComplete)
-//    {
-//        {
-//            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
-//
-//            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::NeighbourLighting});
-//            EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::Meshing});
-//        }
-//
-//        m_JobQueueCond.notify_one();
-//
-//        return;
-//    }
-//
-//    // Above condition ensures that the called chunk is in meshable state.
-//    World_Chunk_Stage expected = World_Chunk_Stage::NeighbourLightingComplete;
-//    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::MeshingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
-//
-//    chunk->CPUMesh.Vertices.clear();
-//    chunk->CPUMesh.Indices.clear();
-//
-//    Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk, chunk->CPUMesh);
-//
-//    chunk->Stage.store(World_Chunk_Stage::MeshingComplete, std::memory_order_release);
-//}

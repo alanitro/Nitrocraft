@@ -77,7 +77,7 @@ struct World_Chunk
     std::atomic<bool> NeighboursSet = false;
 
     std::unique_ptr<World_Chunk_Storage> Storage;
-    std::atomic<int> StorageVersion = 0;
+    std::atomic<std::uint32_t>           StorageVersion = 0;
 
     explicit World_Chunk(World_Chunk_ID id) : ID{ id } {}
 

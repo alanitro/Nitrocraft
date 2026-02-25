@@ -56,11 +56,6 @@ int World_Chunk::GetMaxHeight() const
     return *std::max_element(Storage->Heights.begin(), Storage->Heights.end());;
 }
 
-void World_Chunk::SetHeightAt(int local_x, int local_z, std::uint8_t height)
-{
-    Storage->Heights.At(local_x, local_z) = static_cast<std::uint8_t>(height);
-}
-
 std::array<World_Block, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
 World_Chunk::GetCrossNeighbourBlocksAt(World_LocalXYZ local) const
 {

@@ -5,6 +5,7 @@
 #include <glm/vec2.hpp>
 #include "World_Coordinate.hpp"
 #include "World_Chunk.hpp"
+#include <print>//TODO:remove
 
 namespace
 {
@@ -84,8 +85,10 @@ namespace
     };
 }
 
-void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh)
+Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk)
 {
+    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk), chunk->StorageVersion.load(std::memory_order_acquire) };
+
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
     for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
@@ -128,7 +131,7 @@ void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_Chunk
 
                 constexpr float w = 1.0f / 16.0f;
 
-                mesh.Vertices.emplace_back(
+                cpumesh.Vertices.emplace_back(
                     block_face[vertex_base + 0] + block_offset.x,
                     block_face[vertex_base + 1] + block_offset.y,
                     block_face[vertex_base + 2] + block_offset.z,
@@ -140,9 +143,9 @@ void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_Chunk
             }
 
             // Populate indices
-            std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
-            mesh.Indices.insert(
-                mesh.Indices.end(),
+            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.Vertices.size() - 4);
+            cpumesh.Indices.insert(
+                cpumesh.Indices.end(),
                 {
                     base_index + 0, base_index + 1, base_index + 2,
                     base_index + 0, base_index + 2, base_index + 3
@@ -150,6 +153,8 @@ void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_Chunk
             );
         }
     }
+
+    return cpumesh;
 }
 
 namespace
@@ -221,8 +226,10 @@ namespace
     }
 }
 
-void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh)
+Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk)
 {
+    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk) };
+
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
     for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
@@ -281,7 +288,7 @@ void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chun
                     corner.IsOpaque() ? 1 : 0
                 );
 
-                mesh.Vertices.emplace_back(
+                cpumesh.Vertices.emplace_back(
                     block_face[vertex_base + 0] + block_offset.x,
                     block_face[vertex_base + 1] + block_offset.y,
                     block_face[vertex_base + 2] + block_offset.z,
@@ -294,12 +301,12 @@ void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chun
             }
 
             // Populate indices
-            std::uint32_t base_index = static_cast<std::uint32_t>(mesh.Vertices.size() - 4);
+            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.Vertices.size() - 4);
 
             if (ao_states[1] + ao_states[3] <= ao_states[0] + ao_states[2])
             {
-                mesh.Indices.insert(
-                    mesh.Indices.end(),
+                cpumesh.Indices.insert(
+                    cpumesh.Indices.end(),
                     {
                         base_index + 0, base_index + 1, base_index + 2,
                         base_index + 0, base_index + 2, base_index + 3,
@@ -308,8 +315,8 @@ void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chun
             }
             else
             {
-                mesh.Indices.insert(
-                    mesh.Indices.end(),
+                cpumesh.Indices.insert(
+                    cpumesh.Indices.end(),
                     {
                         base_index + 0, base_index + 1, base_index + 3,
                         base_index + 1, base_index + 2, base_index + 3,
@@ -318,12 +325,12 @@ void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chun
             }
         }
     }
+
+    return cpumesh;
 }
 
-Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle(std::uint32_t storage_version)
+Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle()
 {
-    Version = storage_version;
-
     glGenVertexArrays(1, &VertexArrayID);
     glGenBuffers(1, &VertexBufferID);
     glGenBuffers(1, &IndexBufferID);
@@ -332,11 +339,11 @@ Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle(std::uint32_t storage_v
     glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, X)));
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, S)));
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, F)));
-    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, L)));
-    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkCPUMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkCPUMeshVertexLayout, AO)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, X)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, S)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, F)));
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, L)));
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, AO)));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
@@ -348,6 +355,8 @@ Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle(std::uint32_t storage_v
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    static int counter = 0;
+    //std::println("Created {}", ++counter); //TODO:remove
 }
 
 Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
@@ -355,19 +364,5 @@ Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
     glDeleteBuffers(1, &IndexBufferID);
-}
-
-void Graphics_ChunkGPUMeshHandle::UploadCPUMeshToGPU(const Graphics_ChunkCPUMesh& cpumesh)
-{
-    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-
-    // TODO: use buffer orphaning instead of recreating new buffer
-    glBufferData(GL_ARRAY_BUFFER, cpumesh.Vertices.size() * sizeof(Graphics_ChunkCPUMeshVertexLayout), cpumesh.Vertices.data(), GL_STATIC_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cpumesh.Indices.size() * sizeof(std::uint32_t), cpumesh.Indices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    IndicesCount = static_cast<std::uint32_t>(cpumesh.Indices.size());
+    //std::println("Destroyed"); //TODO:remove
 }

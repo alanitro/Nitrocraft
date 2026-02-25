@@ -24,7 +24,7 @@ enum Nitrocraft_State
 
 Nitrocraft_State State = Nitrocraft_State::INACTIVE;
 
-float PlayerSpeed = 10.0f;
+float PlayerSpeed = 20.0f;
 
 int RenderDistance = 6;
 
@@ -223,7 +223,7 @@ void Nitrocraft_Run()
     Camera camera;
     camera.SetAspectRatio(1720.0f / 960.0f);
     camera.SetFar(640.0f);
-    camera.Calculate(glm::vec3(0.0f, 96.0f, 0.0f), glm::vec3(0.0f));
+    camera.Calculate(glm::vec3(0.0f, 128.0f, 0.0f), glm::vec3(0.0f));
 
     Graphics_BlockOutlineRenderer_Initialize();
 

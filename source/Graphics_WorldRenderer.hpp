@@ -6,6 +6,7 @@
 #include <atomic>
 #include <condition_variable>
 #include "Graphics_Shader.hpp"
+#include "Graphics_Mesh.hpp"
 #include "World_Coordinate.hpp"
 #include "World_ChunkManager.hpp"
 
@@ -32,10 +33,33 @@ private:
     Graphics_Shader m_ChunkShader;
 
     // Mesh storage
+    struct GPUMeshHandleHolder
+    {
+        std::unique_ptr<Graphics_ChunkGPUMeshHandle> Handle;
+        std::uint32_t UploadedVersion = 0;
+        std::uint32_t RequestedVersion = 0;
+    };
+
     std::vector<World_Chunk_ID> m_GPUMeshIDsToRender;
-    std::unordered_map<World_Chunk_ID, std::unique_ptr<Graphics_ChunkGPUMeshHandle>> m_ChunkGPUMeshHandles;
+    std::unordered_map<World_Chunk_ID, GPUMeshHandleHolder> m_ChunkGPUMeshHandles;
 
     // Meshing threads
     std::vector<std::jthread>  m_MeshingThreads;
     std::size_t                m_MeshingThreadCount = 0;
+
+    // Meshing job
+    struct MeshingJob
+    {
+        World_Chunk*  MeshingChunk;
+        std::uint32_t RequestVersion;
+    };
+    std::queue<MeshingJob>  m_MeshingJobQueue;
+    bool                    m_MeshingJobRetire = false;
+    std::mutex              m_MeshingJobMutex;
+    std::condition_variable m_MeshingJobCond;
+
+    std::queue<Graphics_ChunkCPUMesh> m_CompletedCPUMeshQueue;
+    std::mutex                        m_CompletedCPUMeshQueueMutex;
+
+    void CPUMeshingWorkLoop();
 };

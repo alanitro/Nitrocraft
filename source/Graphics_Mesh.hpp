@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 #include <atomic>
 #include <glad/gl.h>
 
 struct World_Chunk;
 
-struct Graphics_ChunkCPUMeshVertexLayout
+struct Graphics_ChunkMeshVertexLayout
 {
     float        X;  // Vertex position (x,y,z)
     float        Y;
@@ -21,38 +22,24 @@ struct Graphics_ChunkCPUMeshVertexLayout
 
 struct Graphics_ChunkCPUMesh
 {
-    std::vector<Graphics_ChunkCPUMeshVertexLayout>  Vertices;
-    std::vector<std::uint32_t>                      Indices;
+    World_Chunk*  MeshedChunk;
+    std::uint32_t RequestedVersion;
+    std::vector<Graphics_ChunkMeshVertexLayout> Vertices;
+    std::vector<std::uint32_t>                  Indices;
 };
 
-void Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh);
+Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk);
 
-void Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk, Graphics_ChunkCPUMesh& mesh);
-
-enum Graphics_ChunkGPUMeshingStage
-{
-    Empty,
-
-    MeshingInProgress,
-    MeshingComplete,
-
-    UploadingInProgress,
-    UploadingComplete,
-};
+Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk);
 
 struct Graphics_ChunkGPUMeshHandle
 {
-    std::uint32_t Version;
-    std::atomic<Graphics_ChunkGPUMeshingStage> Stage;
-
     GLuint        VertexArrayID;
     GLuint        VertexBufferID;
     GLuint        IndexBufferID;
     std::uint32_t IndicesCount;
 
-    explicit Graphics_ChunkGPUMeshHandle(std::uint32_t storage_version = 0);
+    Graphics_ChunkGPUMeshHandle();
 
     ~Graphics_ChunkGPUMeshHandle();
-
-    void UploadCPUMeshToGPU(const Graphics_ChunkCPUMesh& cpumesh);
 };
