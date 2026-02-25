@@ -5,7 +5,6 @@
 #include <glm/vec2.hpp>
 #include "World_Coordinate.hpp"
 #include "World_Chunk.hpp"
-#include <print>//TODO:remove
 
 namespace
 {
@@ -87,7 +86,7 @@ namespace
 
 Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk)
 {
-    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk), chunk->StorageVersion.load(std::memory_order_acquire) };
+    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk) };
 
     World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
 
@@ -355,8 +354,6 @@ Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle()
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    static int counter = 0;
-    //std::println("Created {}", ++counter); //TODO:remove
 }
 
 Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
@@ -364,5 +361,4 @@ Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
     glDeleteBuffers(1, &IndexBufferID);
-    //std::println("Destroyed"); //TODO:remove
 }

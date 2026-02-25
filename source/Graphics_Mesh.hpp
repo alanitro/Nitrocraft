@@ -23,7 +23,7 @@ struct Graphics_ChunkMeshVertexLayout
 struct Graphics_ChunkCPUMesh
 {
     World_Chunk*  MeshedChunk;
-    std::uint32_t RequestedVersion;
+    std::uint32_t CompletedVersion;
     std::vector<Graphics_ChunkMeshVertexLayout> Vertices;
     std::vector<std::uint32_t>                  Indices;
 };

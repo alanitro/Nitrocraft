@@ -155,21 +155,19 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
 
         auto chunk_storage_version = chunk->StorageVersion.load(std::memory_order_acquire);
 
-        if (auto iter = m_ChunkGPUMeshHandles.find(chunk->ID); iter != m_ChunkGPUMeshHandles.end())
-        {
-            if (iter->second.UploadedVersion < chunk_storage_version && iter->second.RequestedVersion < chunk_storage_version)
-            {
-                // Push to mesh gen queue
-                {
-                    std::lock_guard<std::mutex> lock{ m_MeshingJobMutex };
-                    m_MeshingJobQueue.emplace(chunk, chunk_storage_version);
-                }
-                m_MeshingJobCond.notify_one();
+        GPUMeshHandleHolder* holder = nullptr;
 
-                iter->second.RequestedVersion = chunk_storage_version;
-            }
+        if (auto iter = m_ChunkGPUMeshHandles.find(chunk->ID); iter == m_ChunkGPUMeshHandles.end())
+        {
+            auto [new_iter, res] = m_ChunkGPUMeshHandles.emplace(chunk->ID, GPUMeshHandleHolder{ std::make_unique<Graphics_ChunkGPUMeshHandle>(), 0, 0});
+            holder = &new_iter->second;
         }
         else
+        {
+            holder = &iter->second;
+        }
+
+        if (holder->UploadedVersion < chunk_storage_version && holder->RequestedVersion < chunk_storage_version)
         {
             // Push to mesh gen queue
             {
@@ -178,8 +176,7 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
             }
             m_MeshingJobCond.notify_one();
 
-            // Create holder
-            m_ChunkGPUMeshHandles.emplace(chunk->ID, GPUMeshHandleHolder{ nullptr, 0, chunk_storage_version });
+            holder->RequestedVersion = chunk_storage_version;
         }
     }
 
@@ -187,19 +184,17 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
     while (true)
     {
         // Get completed cpumesh
-        m_CompletedCPUMeshQueueMutex.lock();
+        Graphics_ChunkCPUMesh cpumesh;
 
-        if (m_CompletedCPUMeshQueue.empty())
         {
-            m_CompletedCPUMeshQueueMutex.unlock();
-            break;
+            std::lock_guard<std::mutex> lock{ m_CompletedCPUMeshQueueMutex };
+
+            if (m_CompletedCPUMeshQueue.empty()) break;
+
+            cpumesh = std::move(m_CompletedCPUMeshQueue.front()); m_CompletedCPUMeshQueue.pop();
         }
 
-        Graphics_ChunkCPUMesh cpumesh = std::move(m_CompletedCPUMeshQueue.front()); m_CompletedCPUMeshQueue.pop();
-
-        m_CompletedCPUMeshQueueMutex.unlock();
-
-        if (cpumesh.MeshedChunk->StorageVersion.load(std::memory_order_acquire) > cpumesh.RequestedVersion) continue;
+        if (cpumesh.MeshedChunk->StorageVersion.load(std::memory_order_acquire) > cpumesh.CompletedVersion) continue;
 
         // Upload finished cpumesh to gpu if its version is > gpu mesh version.
         auto iter = m_ChunkGPUMeshHandles.find(cpumesh.MeshedChunk->ID);
@@ -208,11 +203,9 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
 
         auto& holder = iter->second;
 
-        if (cpumesh.RequestedVersion != holder.RequestedVersion) continue;
+        if (cpumesh.CompletedVersion != holder.RequestedVersion) continue;
 
-        holder.Handle = std::make_unique<Graphics_ChunkGPUMeshHandle>();
-
-        holder.UploadedVersion = cpumesh.RequestedVersion;
+        holder.UploadedVersion = holder.RequestedVersion;
 
         glBindBuffer(GL_ARRAY_BUFFER, holder.Handle->VertexBufferID);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, holder.Handle->IndexBufferID);
@@ -248,9 +241,12 @@ void Graphics_WorldRenderer::CPUMeshingWorkLoop()
 
         if (request_version < chunk->StorageVersion.load(std::memory_order_acquire)) continue;
 
-        auto cpumesh = Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk);
+        auto cpumesh =
+            (m_EnableAmbientOcclusion) ?
+            Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk) :
+            Graphics_Mesh_GenerateChunkCPUMesh(chunk);
 
-        cpumesh.RequestedVersion = request_version;
+        cpumesh.CompletedVersion = request_version;
 
         {
             std::lock_guard<std::mutex> lock{ m_CompletedCPUMeshQueueMutex };

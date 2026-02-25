@@ -314,9 +314,15 @@ void Nitrocraft_Run()
             ImGui::SliderInt("##b", &RenderDistance, 2, 32);
             World_SetRenderDistance(RenderDistance);
 
+            ImGui::Text("Enable AmbientOcclusion:");
+            static bool enable_ambient_occlusion = true;
+            ImGui::Checkbox("##c", &enable_ambient_occlusion);
+            WorldRenderer.EnableAmbientOcclusion(enable_ambient_occlusion);
+            ImGui::Text(" ");
+
             ImGui::Text("Wireframe mode:");
             static bool line_mode = false;
-            ImGui::Checkbox("##c", &line_mode);
+            ImGui::Checkbox("##d", &line_mode);
             if (line_mode)
             {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

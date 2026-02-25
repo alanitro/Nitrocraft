@@ -93,7 +93,6 @@ struct World_Chunk
 
     int  GetHeightAt(int local_x, int local_z) const;
     int  GetMaxHeight() const;
-    void SetHeightAt(int local_x, int local_z, std::uint8_t height);
 
     std::array<World_Block, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
         GetCrossNeighbourBlocksAt(World_LocalXYZ local) const;
