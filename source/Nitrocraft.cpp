@@ -8,6 +8,7 @@
 #include <imgui_impl_opengl3.h>
 #include "World.hpp"
 #include "Graphics_BlockOutlineRenderer.hpp"
+#include "Graphics_ChunkOutlineRenderer.hpp"
 #include "Graphics_WorldRenderer.hpp"
 #include "Graphics_Camera.hpp"
 #include "Utility_Time.hpp"
@@ -23,6 +24,10 @@ enum Nitrocraft_State
 };
 
 Nitrocraft_State State = Nitrocraft_State::INACTIVE;
+
+bool RenderBlockOutline = true;
+
+bool RenderChunkOutline = false;
 
 float PlayerSpeed = 20.0f;
 
@@ -225,11 +230,13 @@ void Nitrocraft_Run()
     camera.SetFar(640.0f);
     camera.Calculate(glm::vec3(0.0f, 128.0f, 0.0f), glm::vec3(0.0f));
 
+    World_Initialize();
+
     Graphics_BlockOutlineRenderer_Initialize();
 
-    WorldRenderer.Initialize();
+    Graphics_ChunkOutlineRenderer_Initialize();
 
-    World_Initialize();
+    WorldRenderer.Initialize();
 
     //// Pipeline config
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -314,15 +321,20 @@ void Nitrocraft_Run()
             ImGui::SliderInt("##b", &RenderDistance, 2, 32);
             World_SetRenderDistance(RenderDistance);
 
-            ImGui::Text("Enable AmbientOcclusion:");
+            ImGui::Text("Ambient Occlusion:");
             static bool enable_ambient_occlusion = true;
             ImGui::Checkbox("##c", &enable_ambient_occlusion);
             WorldRenderer.EnableAmbientOcclusion(enable_ambient_occlusion);
-            ImGui::Text(" ");
 
-            ImGui::Text("Wireframe mode:");
+            ImGui::Text("Block Outline:");
+            ImGui::Checkbox("##d", &RenderBlockOutline);
+
+            ImGui::Text("Chunk Outline:");
+            ImGui::Checkbox("##e", &RenderChunkOutline);
+
+            ImGui::Text("Wireframe Mode:");
             static bool line_mode = false;
-            ImGui::Checkbox("##d", &line_mode);
+            ImGui::Checkbox("##f", &line_mode);
             if (line_mode)
             {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -331,7 +343,6 @@ void Nitrocraft_Run()
             {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
-            ImGui::Text(" ");
         }
         ImGui::End();
 
@@ -340,11 +351,16 @@ void Nitrocraft_Run()
 
         WorldRenderer.Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
 
-        if (raycast_result_opt.has_value())
+        if (RenderBlockOutline && raycast_result_opt.has_value())
         {
             World_Position position = raycast_result_opt.value().first;
 
-            Graphics_BlockOutlineRenderer_RenderBlock(camera, position);
+            Graphics_BlockOutlineRenderer_Render(camera, position);
+        }
+
+        if (RenderChunkOutline)
+        {
+            Graphics_ChunkOutlineRenderer_Render(camera, World_FromGlobalToChunkOffset(camera.GetPosition()));
         }
 
         ImGUI_Render();
@@ -355,9 +371,13 @@ void Nitrocraft_Run()
     }
 
     // Terminate
-    World_Terminate();
+    Graphics_BlockOutlineRenderer_Terminate();
+
+    Graphics_ChunkOutlineRenderer_Terminate();
 
     WorldRenderer.Terminate();
+
+    World_Terminate();
 
     ImGUI_Terminate();
     

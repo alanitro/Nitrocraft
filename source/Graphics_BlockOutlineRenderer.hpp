@@ -6,4 +6,4 @@
 void Graphics_BlockOutlineRenderer_Initialize();
 void Graphics_BlockOutlineRenderer_Terminate();
 
-void Graphics_BlockOutlineRenderer_RenderBlock(const Camera& camera, World_Position block_position);
+void Graphics_BlockOutlineRenderer_Render(const Camera& camera, World_Position block_position);

@@ -41,7 +41,7 @@ add_executable(${PROJECT_NAME}
     source/Utility_BlockingQueue.hpp
     source/Utility_IO.hpp
     source/Utility_IO.cpp
-)
+ "source/Graphics_ChunkoutlineRenderer.cpp")
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
