@@ -14,26 +14,28 @@
 #include "Utility_Time.hpp"
 #include "Utility_Timer.hpp"
 
+namespace nitrocraft
+{
+
 namespace
 {
-enum Nitrocraft_State
+
+enum NitrocraftState
 {
     INACTIVE,
     ACTIVE,
     PAUSE,
 };
 
-Nitrocraft_State State = Nitrocraft_State::INACTIVE;
+NitrocraftState s_state = NitrocraftState::INACTIVE;
 
-bool RenderBlockOutline = true;
+bool s_render_block_outline = true;
 
-bool RenderChunkOutline = false;
+bool s_render_chunk_outline = false;
 
-float PlayerSpeed = 20.0f;
+float s_player_speed = 40.0f;
 
-int RenderDistance = 6;
-
-Graphics_WorldRenderer WorldRenderer;
+int s_render_distance = 10;
 
 GLFWwindow* InitializeGLFWAndOpenGLContext()
 {
@@ -102,7 +104,7 @@ GLFWwindow* InitializeGLFWAndOpenGLContext()
                 static bool flip = false;
                 glfwSetInputMode(window, GLFW_CURSOR, flip ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
                 flip = flip ? false : true;
-                State = flip ? Nitrocraft_State::PAUSE : Nitrocraft_State::ACTIVE;
+                s_state = flip ? NitrocraftState::PAUSE : NitrocraftState::ACTIVE;
             }
         }
     );
@@ -123,10 +125,10 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
 
     glm::vec3 delta_position(0.0f);
 
-    if (State == Nitrocraft_State::ACTIVE)
+    if (s_state == NitrocraftState::ACTIVE)
     {
         //// Get delta position
-        float speed = PlayerSpeed;
+        float speed = s_player_speed;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)    speed *= 2.0f;
         float delta_speed = speed * static_cast<float>(delta_time);
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)             delta_position += camera.GetLeft() * delta_speed;
@@ -142,7 +144,7 @@ void RecalculateCamera(Camera& camera, GLFWwindow* window, double delta_time)
     static double prev_xpos, prev_ypos;
     double xpos, ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
-    if (State == Nitrocraft_State::ACTIVE)
+    if (s_state == NitrocraftState::ACTIVE)
     {
         if (first_loop)
         {
@@ -202,6 +204,105 @@ void ImGUI_NewFrame()
     ImGui::NewFrame();
 }
 
+void ImGUI_Update(
+    GLFWwindow* window,
+    world::World& world,
+    graphics::WorldRenderer& world_renderer,
+    const Camera& camera,
+    const std::optional<world::RayResult>& raycast_result_opt
+)
+{
+    if (ImGui::Begin("Information & Configs") == false)
+    {
+        ImGui::End();
+
+        return;
+    }
+
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    auto io = ImGui::GetIO();
+    ImGui::Text("Frame Rate : %d FPS", (int)io.Framerate);
+    ImGui::Text("Frame Time : %.3f ms/frame", 1000.0f / io.Framerate);
+    ImGui::Text("Resolution : %d x %d", width, height);
+    ImGui::Text(" ");
+
+    constexpr const char* state_names[3]{ "Inactive", "Active", "Pause" };
+    ImGui::Text("State : %s", state_names[(int)s_state]);
+    ImGui::Text(" ");
+
+    ImGui::Text("X Position : %.2f", camera.GetPosition().x);
+    ImGui::Text("Y Position : %.2f", camera.GetPosition().y);
+    ImGui::Text("Z Position : %.2f", camera.GetPosition().z);
+    ImGui::Text(" ");
+
+    ImGui::Text("X Rotation : %.2f", camera.GetFront().x);
+    ImGui::Text("Y Rotation : %.2f", camera.GetFront().y);
+    ImGui::Text("Z Rotation : %.2f", camera.GetFront().z);
+    ImGui::Text(" ");
+
+    ImGui::Text("Chunk Gen Threads: %d", world.GetChunkManager().GetWorkerThreadCount());
+    ImGui::Text(" ");
+
+    ImGui::Text("Chunks Loaded: %d", world.GetChunkManager().GetLoadedChunkCount());
+    ImGui::Text(" ");
+
+    auto id = world::FromGlobalToChunkID(camera.GetPosition());
+    ImGui::Text("Current Chunk ID : %d %d", id.x, id.z);
+    ImGui::Text(" ");
+
+    auto chunk = world.GetChunkAt(camera.GetPosition());
+    ImGui::Text("Current Chunk Stage : %d", chunk->stage.load(std::memory_order_relaxed));
+    ImGui::Text(" ");
+
+    ImGui::Text("Sunlight Level : %02d", (int)world::ExtractSunlight(world.GetLightAt(camera.GetPosition())));
+    ImGui::Text("Pointlight Level : %02d", (int)world::ExtractPointlight(world.GetLightAt(camera.GetPosition())));
+    ImGui::Text(" ");
+
+    ImGui::Text(
+        "Selected Block: %s",
+        raycast_result_opt.has_value() ? std::string(world.GetBlockAt(raycast_result_opt.value().position).GetBlockName()).c_str() : "None"
+    );
+    ImGui::Text(
+        "Selected Face: %s",
+        raycast_result_opt.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (std::intptr_t)raycast_result_opt.value().face * 3 : "None"
+    );
+    ImGui::Text(" ");
+
+    ImGui::Text("Movement Speed:");
+    ImGui::SliderFloat("##a", &s_player_speed, 1.0f, 100.0f);
+
+    ImGui::Text("Render Distance:");
+    ImGui::SliderInt("##b", &s_render_distance, 2, 32);
+    world.SetRenderDistance(s_render_distance);
+
+    ImGui::Text("Ambient Occlusion:");
+    static bool enable_ambient_occlusion = true;
+    ImGui::Checkbox("##c", &enable_ambient_occlusion);
+    world_renderer.EnableAmbientOcclusion(enable_ambient_occlusion);
+
+    ImGui::Text("Block Outline:");
+    ImGui::Checkbox("##d", &s_render_block_outline);
+
+    ImGui::Text("Chunk Outline:");
+    ImGui::Checkbox("##e", &s_render_chunk_outline);
+
+    ImGui::Text("Wireframe Mode:");
+    static bool line_mode = false;
+    ImGui::Checkbox("##f", &line_mode);
+    if (line_mode)
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
+    else
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
+    ImGui::End();
+}
+
 void ImGUI_Render()
 {
     // Rendering
@@ -210,38 +311,45 @@ void ImGUI_Render()
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     // (Your code calls glfwSwapBuffers() etc.)
 }
-} // namespace unnamed
 
-void Nitrocraft_Run()
+} // namespace
+
+void Run()
 {
     // Initialization
     GLFWwindow* window = InitializeGLFWAndOpenGLContext();
 
     ImGUI_Initialize(window);
 
+    world::World world;
+
+    graphics::WorldRenderer world_renderer;
+
+    graphics::BlockOutlineRenderer block_outline_renderer;
+
+    graphics::ChunkOutlineRenderer chunk_outline_renderer;
+
+    world.Initialize();
+
+    world_renderer.Initialize();
+
+    block_outline_renderer.Initialize();
+
+    chunk_outline_renderer.Initialize();
+
     bool is_running = true;
 
-    State = Nitrocraft_State::ACTIVE;
+    s_state = NitrocraftState::ACTIVE;
 
-    Timer timer;
+    utility::Timer timer;
 
     Camera camera;
     camera.SetAspectRatio(1720.0f / 960.0f);
     camera.SetFar(640.0f);
     camera.Calculate(glm::vec3(0.0f, 128.0f, 0.0f), glm::vec3(0.0f));
 
-    World_Initialize();
-
-    Graphics_BlockOutlineRenderer_Initialize();
-
-    Graphics_ChunkOutlineRenderer_Initialize();
-
-    WorldRenderer.Initialize();
-
     //// Pipeline config
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-    //// Player info
 
     // Loop
     while (is_running)
@@ -249,118 +357,36 @@ void Nitrocraft_Run()
         //// Update
         ImGUI_NewFrame();
 
-        if (glfwWindowShouldClose(window)) is_running = false;
+        if (glfwWindowShouldClose(window))
+        {
+            is_running = false;
+        }
 
         RecalculateCamera(camera, window, timer.Elapsed());
 
         timer.Reset();
 
-        World_Update(camera);
+        world.Update(camera);
 
-        WorldRenderer.PrepareChunksToRender(World_GetChunkManager().GetChunksInRenderArea_MainThread());
+        world_renderer.PrepareChunksToRender(world.GetChunkManager().GetChunksInRenderArea_MainThread());
 
-        auto raycast_result_opt = World_CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
+        auto raycast_result_opt = world.CastRay(camera.GetPosition(), camera.GetFront(), 10.0f);
 
-        if (ImGui::Begin("Information & Configs"))
-        {
-            int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
-
-            auto io = ImGui::GetIO();
-            ImGui::Text("Frame Rate : %d FPS", (int)io.Framerate);
-            ImGui::Text("Frame Time : %.3f ms/frame", 1000.0f / io.Framerate);
-            ImGui::Text("Resolution : %d x %d", width, height);
-            ImGui::Text(" ");
-
-            constexpr const char* state_names[3]{ "Inactive", "Active", "Pause" };
-            ImGui::Text("State : %s", state_names[(int)State]);
-            ImGui::Text(" ");
-
-            ImGui::Text("X Position : %.2f", camera.GetPosition().x);
-            ImGui::Text("Y Position : %.2f", camera.GetPosition().y);
-            ImGui::Text("Z Position : %.2f", camera.GetPosition().z);
-            ImGui::Text(" ");
-
-            ImGui::Text("X Rotation : %.2f", camera.GetFront().x);
-            ImGui::Text("Y Rotation : %.2f", camera.GetFront().y);
-            ImGui::Text("Z Rotation : %.2f", camera.GetFront().z);
-            ImGui::Text(" ");
-
-            ImGui::Text("Chunk Gen Threads: %d", World_GetChunkManager().GetWorkerThreadCount());
-            ImGui::Text(" ");
-
-            ImGui::Text("Chunks Loaded: %d", World_GetChunkManager().GetLoadedChunkCount());
-            ImGui::Text(" ");
-
-            auto id = World_FromGlobalToChunkID(camera.GetPosition());
-            ImGui::Text("Current Chunk ID : %d %d", id.x, id.z);
-            ImGui::Text(" ");
-
-            auto chunk = World_GetChunkAt(camera.GetPosition());
-            ImGui::Text("Current Chunk Stage : %d", chunk->Stage.load(std::memory_order_relaxed));
-            ImGui::Text(" ");
-
-            ImGui::Text("Sunlight Level : %02d", (int)World_ExtractSunlight(World_GetLightAt(camera.GetPosition())));
-            ImGui::Text("Pointlight Level : %02d", (int)World_ExtractPointlight(World_GetLightAt(camera.GetPosition())));
-            ImGui::Text(" ");
-
-            ImGui::Text(
-                "Selected Block: %s",
-                raycast_result_opt.has_value() ? std::string(World_GetBlockAt(raycast_result_opt.value().first).GetBlockName()).c_str() : "None"
-            );
-            ImGui::Text(
-                "Selected Face: %s",
-                raycast_result_opt.has_value() ? "XN\0XP\0YN\0YP\0ZN\0ZP" + (std::intptr_t)raycast_result_opt.value().second * 3 : "None"
-            );
-            ImGui::Text(" ");
-
-            ImGui::Text("Movement Speed:");
-            ImGui::SliderFloat("##a", &PlayerSpeed, 1.0f, 100.0f);
-
-            ImGui::Text("Render Distance:");
-            ImGui::SliderInt("##b", &RenderDistance, 2, 32);
-            World_SetRenderDistance(RenderDistance);
-
-            ImGui::Text("Ambient Occlusion:");
-            static bool enable_ambient_occlusion = true;
-            ImGui::Checkbox("##c", &enable_ambient_occlusion);
-            WorldRenderer.EnableAmbientOcclusion(enable_ambient_occlusion);
-
-            ImGui::Text("Block Outline:");
-            ImGui::Checkbox("##d", &RenderBlockOutline);
-
-            ImGui::Text("Chunk Outline:");
-            ImGui::Checkbox("##e", &RenderChunkOutline);
-
-            ImGui::Text("Wireframe Mode:");
-            static bool line_mode = false;
-            ImGui::Checkbox("##f", &line_mode);
-            if (line_mode)
-            {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            }
-            else
-            {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            }
-        }
-        ImGui::End();
+        ImGUI_Update(window, world, world_renderer, camera, raycast_result_opt);
 
         //// Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        WorldRenderer.Render(camera, World_GetSunlightIntensity(), World_GetSkyColor());
+        world_renderer.Render(camera, world.GetSunlightIntensity(), world.GetSkyColor());
 
-        if (RenderBlockOutline && raycast_result_opt.has_value())
+        if (s_render_block_outline && raycast_result_opt.has_value())
         {
-            World_Position position = raycast_result_opt.value().first;
-
-            Graphics_BlockOutlineRenderer_Render(camera, position);
+            block_outline_renderer.Render(camera.GetProjection(), raycast_result_opt.value().position);
         }
 
-        if (RenderChunkOutline)
+        if (s_render_chunk_outline)
         {
-            Graphics_ChunkOutlineRenderer_Render(camera, World_FromGlobalToChunkOffset(camera.GetPosition()));
+            chunk_outline_renderer.Render(camera.GetViewProjection(), world::FromGlobalToChunkOffset(camera.GetPosition()));
         }
 
         ImGUI_Render();
@@ -371,13 +397,14 @@ void Nitrocraft_Run()
     }
 
     // Terminate
-    Graphics_BlockOutlineRenderer_Terminate();
 
-    Graphics_ChunkOutlineRenderer_Terminate();
+    chunk_outline_renderer.Terminate();
 
-    WorldRenderer.Terminate();
+    block_outline_renderer.Terminate();
 
-    World_Terminate();
+    world_renderer.Terminate();
+
+    world.Terminate();
 
     ImGUI_Terminate();
     
@@ -385,3 +412,5 @@ void Nitrocraft_Run()
 
     glfwTerminate();
 }
+
+} // namespace nitrocraft

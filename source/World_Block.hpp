@@ -3,7 +3,10 @@
 #include <cstdint>
 #include <string_view>
 
-enum class World_Block_ID : std::uint8_t
+namespace nitrocraft::world
+{
+
+enum class BlockID : std::uint8_t
 {
     AIR,
     STONE,
@@ -21,7 +24,7 @@ enum class World_Block_ID : std::uint8_t
     COUNT,
 };
 
-enum class World_Block_CrossNeighbour
+enum class BlockCrossNeighbour
 {
     XN, XP,
     YN, YP,
@@ -30,7 +33,7 @@ enum class World_Block_CrossNeighbour
     Count = 6,
 };
 
-enum class World_Block_WholeNeighbour
+enum class BlockWholeNeighbour
 {
     // Faces (6): one-axis offsets
     XnYoZo, XpYoZo,
@@ -59,7 +62,7 @@ enum class World_Block_WholeNeighbour
     Count,
 };
 
-enum class World_Block_Face
+enum class BlockFace
 {
     XN, XP,
     YN, YP,
@@ -68,29 +71,31 @@ enum class World_Block_Face
     COUNT = 6,
 };
 
-struct World_Block
+struct Block
 {
-    World_Block_ID ID;
+    BlockID id;
 
-    bool operator==(World_Block rhs) const
+    bool operator==(Block rhs) const
     {
-        return ID == rhs.ID;
+        return id == rhs.id;
     }
 
-    bool operator!=(World_Block rhs) const
+    bool operator!=(Block rhs) const
     {
-        return ID != rhs.ID;
+        return id != rhs.id;
     }
 
     bool IsOpaque() const
     {
-        return ID != World_Block_ID::AIR && ID != World_Block_ID::OAK_LEAVES;
+        return id != BlockID::AIR && id != BlockID::OAK_LEAVES;
     }
 
     bool IsTransparent() const
     {
-        return ID == World_Block_ID::AIR || ID == World_Block_ID::OAK_LEAVES;
+        return id == BlockID::AIR || id == BlockID::OAK_LEAVES;
     }
 
     std::string_view GetBlockName() const;
 };
+
+} // namespace nitrocraft::world

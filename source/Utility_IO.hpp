@@ -4,14 +4,19 @@
 #include <string>
 #include <vector>
 
-std::optional<std::string> IO_ReadFile(std::string_view filepath);
-
-struct IO_Image
+namespace nitrocraft::utility
 {
-    std::vector<std::uint8_t> ImageData;
-    int Width = 0;
-    int Height = 0;
-    int ChannelNumbers = 0;
+
+std::optional<std::string> ReadFile(std::string_view filepath);
+
+struct ImageData
+{
+    std::vector<std::uint8_t> data;
+    int width = 0;
+    int height = 0;
+    int channel_numbers = 0;
 };
 
-std::optional<IO_Image> IO_ReadImage(std::string_view filepath, bool image_flip = false);
+std::optional<ImageData> ReadImage(std::string_view filepath, bool image_flip = false);
+
+} // namespace nitrocraft::utility

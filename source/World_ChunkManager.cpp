@@ -1,130 +1,128 @@
 #include "World_ChunkManager.hpp"
 
 #include <algorithm>
-#include "World_Generation.hpp"
+#include "World_TerrainGenerator.hpp"
 #include "World_Light.hpp"
 
-World_ChunkManager::World_ChunkManager()
+void nitrocraft::world::ChunkManager::Initialize()
 {
-    m_ChunkMap.reserve(GetLoadingDiameter() * GetLoadingDiameter() * 8);
+    m_chunk_map.reserve(GetLoadingDiameter() * GetLoadingDiameter() * 8);
 
-    m_WorkerCount = std::clamp<std::size_t>(std::thread::hardware_concurrency() / 2 - 1, 1u, 4u);
+    m_worker_count = std::clamp<std::size_t>(std::thread::hardware_concurrency() / 2 - 1, 1u, 4u);
 
-    m_Workers.reserve(m_WorkerCount);
-    
-    for (std::size_t i = 0u; i < m_WorkerCount; ++i)
+    m_workers.reserve(m_worker_count);
+
+    m_terrain_generator.Initialize();
+
+    for (std::size_t i = 0u; i < m_worker_count; ++i)
     {
-        m_Workers.emplace_back([this] { World_Generation_Initialize(12345); JobLoop(); });
+        m_workers.emplace_back([this] { JobLoop(); });
     }
 }
 
-World_ChunkManager::~World_ChunkManager()
+void nitrocraft::world::ChunkManager::Terminate()
 {
-    m_JobRetire.store(true, std::memory_order_release);
+    m_job_retire.store(true, std::memory_order_release);
 
-    m_JobQueueCond.notify_all();
+    m_job_queue_cond.notify_all();
 
-    m_Workers.clear();
+    m_workers.clear();
 }
 
-void World_ChunkManager::SetCenterChunk_MainThread(World_Chunk_ID center_id)
+void nitrocraft::world::ChunkManager::SetCenterChunk_MainThread(ChunkID center_id)
 {
-    static std::size_t prev_render_distance = m_RenderDistance;
+    static std::size_t prev_render_distance = m_render_distance;
 
-    if (m_CurrentChunkID == center_id && prev_render_distance == m_RenderDistance) return;
+    if (m_current_chunk_id == center_id && prev_render_distance == m_render_distance) return;
 
-    m_CurrentChunkID = center_id;
-    prev_render_distance = m_RenderDistance;
+    m_current_chunk_id = center_id;
+    prev_render_distance = m_render_distance;
 
     // Update chunk map.
     // Loaded area's outermost ring's chunks are NOT neighbour set.
     const int loading_distance = static_cast<int>(GetLoadingDistance());
     const int loading_diameter = static_cast<int>(GetLoadingDiameter());
 
-    std::vector<World_Chunk*> loading_area(loading_diameter * loading_diameter, nullptr);
+    std::vector<Chunk*> loading_area(loading_diameter * loading_diameter, nullptr);
 
     auto index_of = [loading_diameter](int i, int j) { return i * loading_diameter + j; };
 
     // Chunks that are not in loaded area are allocated in ChunkMap.
     {
-        std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
+        std::lock_guard<std::mutex> lock{ m_chunk_map_mutex };
 
-        for (int ix = m_CurrentChunkID.x - loading_distance, ax = 0; ix <= m_CurrentChunkID.x + loading_distance; ++ix, ++ax)
+        for (int ix = m_current_chunk_id.x - loading_distance, ax = 0; ix <= m_current_chunk_id.x + loading_distance; ++ix, ++ax)
+        for (int iz = m_current_chunk_id.z - loading_distance, az = 0; iz <= m_current_chunk_id.z + loading_distance; ++iz, ++az)
         {
-            for (int iz = m_CurrentChunkID.z - loading_distance, az = 0; iz <= m_CurrentChunkID.z + loading_distance; ++iz, ++az)
+            ChunkID id{ ix, 0, iz };
+
+            auto& slot = loading_area[index_of(ax, az)];
+
+            if (auto iter = m_chunk_map.find(id); iter == m_chunk_map.end())
             {
-                World_Chunk_ID id{ ix, 0, iz };
+                auto new_chunk = std::make_unique<Chunk>(id);
 
-                auto& slot = loading_area[index_of(ax, az)];
+                new_chunk->storage = std::make_unique<ChunkStorage>();
 
-                if (auto iter = m_ChunkMap.find(id); iter == m_ChunkMap.end())
-                {
-                    auto new_chunk = std::make_unique<World_Chunk>(id);
+                slot = new_chunk.get();
 
-                    new_chunk->Storage = std::make_unique<World_Chunk_Storage>();
-
-                    slot = new_chunk.get();
-
-                    m_ChunkMap.emplace(id, std::move(new_chunk));
-                }
-                else
-                {
-                    slot = iter->second.get();
-                }
+                m_chunk_map.emplace(id, std::move(new_chunk));
+            }
+            else
+            {
+                slot = iter->second.get();
             }
         }
     }
 
     // Associate neighbours for non-outermost ring chunks.
     for (int i = 1; i < loading_diameter - 1; ++i)
+    for (int j = 1; j < loading_diameter - 1; ++j)
     {
-        for (int j = 1; j < loading_diameter - 1; ++j)
-        {
-            auto c = loading_area[index_of(i,j)];
+        auto c = loading_area[index_of(i,j)];
 
-            if (c->NeighboursSet.load(std::memory_order_relaxed)) continue;
+        if (c->neighbours_set.load(std::memory_order_relaxed)) continue;
 
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZ0] = loading_area[index_of(i - 1, j    )];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZ0] = loading_area[index_of(i + 1, j    )];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZN] = loading_area[index_of(i    , j - 1)];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::X0ZP] = loading_area[index_of(i    , j + 1)];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZN] = loading_area[index_of(i - 1, j - 1)];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZN] = loading_area[index_of(i + 1, j - 1)];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XNZP] = loading_area[index_of(i - 1, j + 1)];
-            c->Neighbours[(std::size_t)World_Chunk_Neighbour::XPZP] = loading_area[index_of(i + 1, j + 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::XNZ0] = loading_area[index_of(i - 1, j    )];
+        c->neighbours[(std::size_t)ChunkNeighbour::XPZ0] = loading_area[index_of(i + 1, j    )];
+        c->neighbours[(std::size_t)ChunkNeighbour::X0ZN] = loading_area[index_of(i    , j - 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::X0ZP] = loading_area[index_of(i    , j + 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::XNZN] = loading_area[index_of(i - 1, j - 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::XPZN] = loading_area[index_of(i + 1, j - 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::XNZP] = loading_area[index_of(i - 1, j + 1)];
+        c->neighbours[(std::size_t)ChunkNeighbour::XPZP] = loading_area[index_of(i + 1, j + 1)];
 
-            c->NeighboursSet.store(true, std::memory_order_release);
-        }
+        c->neighbours_set.store(true, std::memory_order_release);
     }
 
     // Schedule work for render area.
     // Render area is an area within ring3 excluding three-outermost-ring area.
     {
-        std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+        std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
         for (int i = 3; i < loading_diameter - 3; ++i)
         for (int j = 3; j < loading_diameter - 3; ++j)
         {
-            World_Chunk* c = loading_area[index_of(i, j)];
-            if (c->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingInProgress)
+            Chunk* c = loading_area[index_of(i, j)];
+            if (c->stage.load(std::memory_order_acquire) < ChunkStage::NeighbourLightingInProgress)
                 EnqueueDedupJob_ThreadUnsafe({ c, JobType::NeighbourLighting });
         }
     }
 
-    m_JobQueueCond.notify_one();
+    m_job_queue_cond.notify_one();
 }
 
-std::vector<World_Chunk*> World_ChunkManager::GetChunksInRenderArea_MainThread() const
+std::vector<nitrocraft::world::Chunk*> nitrocraft::world::ChunkManager::GetChunksInRenderArea_MainThread() const
 {
-    std::vector<World_Chunk*> chunks_to_render;
+    std::vector<Chunk*> chunks_to_render;
 
     {
-        std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
+        std::lock_guard<std::mutex> lock{ m_chunk_map_mutex };
 
-        for (int ix = m_CurrentChunkID.x - static_cast<int>(m_RenderDistance); ix <= m_CurrentChunkID.x + static_cast<int>(m_RenderDistance); ++ix)
-        for (int iz = m_CurrentChunkID.z - static_cast<int>(m_RenderDistance); iz <= m_CurrentChunkID.z + static_cast<int>(m_RenderDistance); ++iz)
+        for (int ix = m_current_chunk_id.x - static_cast<int>(m_render_distance); ix <= m_current_chunk_id.x + static_cast<int>(m_render_distance); ++ix)
+        for (int iz = m_current_chunk_id.z - static_cast<int>(m_render_distance); iz <= m_current_chunk_id.z + static_cast<int>(m_render_distance); ++iz)
         {
-            if (auto iter = m_ChunkMap.find(World_Chunk_ID(ix, 0, iz)); iter != m_ChunkMap.end())
+            if (auto iter = m_chunk_map.find(ChunkID(ix, 0, iz)); iter != m_chunk_map.end())
             {
                 chunks_to_render.push_back(iter->second.get());
             }
@@ -134,11 +132,11 @@ std::vector<World_Chunk*> World_ChunkManager::GetChunksInRenderArea_MainThread()
     return chunks_to_render;
 }
 
-std::optional<const World_Chunk*> World_ChunkManager::GetChunkAt(World_GlobalXYZ global) const
+std::optional<const nitrocraft::world::Chunk*> nitrocraft::world::ChunkManager::GetChunkAt(GlobalXYZ global) const
 {
-    std::lock_guard<std::mutex> lock{ m_ChunkMapMutex };
+    std::lock_guard<std::mutex> lock{ m_chunk_map_mutex };
 
-    if (auto iter = m_ChunkMap.find(World_FromGlobalToChunkID(global)); iter != m_ChunkMap.end())
+    if (auto iter = m_chunk_map.find(FromGlobalToChunkID(global)); iter != m_chunk_map.end())
     {
         return iter->second.get();
     }
@@ -148,117 +146,117 @@ std::optional<const World_Chunk*> World_ChunkManager::GetChunkAt(World_GlobalXYZ
     }
 }
 
-void World_ChunkManager::SetRenderDistance(std::size_t render_distance)
+void nitrocraft::world::ChunkManager::SetRenderDistance(std::size_t render_distance)
 {
-    m_RenderDistance = std::clamp<std::size_t>(render_distance, 2, 32);
+    m_render_distance = std::clamp<std::size_t>(render_distance, 2, 32);
 }
 
-std::size_t World_ChunkManager::GetLoadingDistance() const
+std::size_t nitrocraft::world::ChunkManager::GetLoadingDistance() const
 {
-    return m_RenderDistance + 3;
+    return m_render_distance + 3;
 }
 
-std::size_t World_ChunkManager::GetLoadingDiameter() const
+std::size_t nitrocraft::world::ChunkManager::GetLoadingDiameter() const
 {
     return GetLoadingDistance() * 2 + 1;
 }
 
-void World_ChunkManager::JobLoop()
+void nitrocraft::world::ChunkManager::JobLoop()
 {
     while (true)
     {
         Job job;
 
         {
-            std::unique_lock lock{ m_JobQueueMutex };
+            std::unique_lock lock{ m_job_queue_mutex };
 
-            m_JobQueueCond.wait(lock, [this]() { return m_JobRetire.load(std::memory_order_acquire) || !m_JobQueue.empty(); });
+            m_job_queue_cond.wait(lock, [this]() { return m_job_retire.load(std::memory_order_acquire) || !m_job_queue.empty(); });
 
-            if (m_JobRetire.load(std::memory_order_acquire)) return;
+            if (m_job_retire.load(std::memory_order_acquire)) return;
 
-            job = m_JobQueue.front(); m_JobQueue.pop();
+            job = m_job_queue.front(); m_job_queue.pop();
 
-            job.Chunk->EnqueuedStates.fetch_and(static_cast<std::uint8_t>(~JobBit(job.Type)), std::memory_order_acq_rel);
+            job.chunk->enqueued_states.fetch_and(static_cast<std::uint8_t>(~JobBit(job.type)), std::memory_order_acq_rel);
         }
 
-        if (job.Type == JobType::Generation)
+        if (job.type == JobType::Generation)
         {
-            GenerationJobHandler(job.Chunk);
+            GenerationJobHandler(job.chunk);
         }
-        else if (job.Type == JobType::LocalLighting)
+        else if (job.type == JobType::LocalLighting)
         {
-            LocalLightingJobHandler(job.Chunk);
+            LocalLightingJobHandler(job.chunk);
         }
-        else if (job.Type == JobType::NeighbourLighting)
+        else if (job.type == JobType::NeighbourLighting)
         {
-            NeighbourLightingJobHandler(job.Chunk);
+            NeighbourLightingJobHandler(job.chunk);
         }
     }
 }
 
-void World_ChunkManager::EnqueueDedupJob_ThreadSafeWithNotify(Job job)
+void nitrocraft::world::ChunkManager::EnqueueDedupJob_ThreadSafeWithNotify(Job job)
 {
-    if (job.Chunk->EnqueuedStates.fetch_or(JobBit(job.Type), std::memory_order_relaxed) & JobBit(job.Type)) return;
+    if (job.chunk->enqueued_states.fetch_or(JobBit(job.type), std::memory_order_relaxed) & JobBit(job.type)) return;
 
     {
-        std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+        std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
-        m_JobQueue.push(job);
+        m_job_queue.push(job);
     }
 
-    m_JobQueueCond.notify_one();
+    m_job_queue_cond.notify_one();
 }
 
-void World_ChunkManager::EnqueueDedupJob_ThreadUnsafe(Job job)
+void nitrocraft::world::ChunkManager::EnqueueDedupJob_ThreadUnsafe(Job job)
 {
-    if (job.Chunk->EnqueuedStates.fetch_or(JobBit(job.Type), std::memory_order_relaxed) & JobBit(job.Type)) return;
+    if (job.chunk->enqueued_states.fetch_or(JobBit(job.type), std::memory_order_relaxed) & JobBit(job.type)) return;
 
-    m_JobQueue.push(job);
+    m_job_queue.push(job);
 }
 
-void World_ChunkManager::GenerationJobHandler(World_Chunk* chunk)
+void nitrocraft::world::ChunkManager::GenerationJobHandler(Chunk* chunk)
 {
-    // Called chunk is in Stage==Empty -> ready for terrain/cave generation.
-    auto expected = World_Chunk_Stage::Empty;
-    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::GenerationInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
+    // Called chunk is in stage==Empty -> ready for terrain/cave generation.
+    auto expected = ChunkStage::Empty;
+    if (!chunk->stage.compare_exchange_strong(expected, ChunkStage::GenerationInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
 
-    World_Generation_GenerateChunk(chunk);
+    m_terrain_generator.GenerateTerrain(chunk);
 
-    chunk->Stage.store(World_Chunk_Stage::GenerationComplete, std::memory_order_release);
+    chunk->stage.store(ChunkStage::GenerationComplete, std::memory_order_release);
 }
 
-void World_ChunkManager::LocalLightingJobHandler(World_Chunk* chunk)
+void nitrocraft::world::ChunkManager::LocalLightingJobHandler(Chunk* chunk)
 {
-    // Called chunk has to be in Stage==GenerationComplete state 
-    if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::GenerationComplete)
+    // Called chunk has to be in stage==GenerationComplete state 
+    if (chunk->stage.load(std::memory_order_acquire) < ChunkStage::GenerationComplete)
     {
         {
-            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
             EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::Generation });
             EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::LocalLighting });
         }
 
-        m_JobQueueCond.notify_one();
+        m_job_queue_cond.notify_one();
 
         return;
     }
 
-    // Called chunk's neighbours have to be in Stage>=GenerationComplete state
+    // Called chunk's neighbours have to be in stage>=GenerationComplete state
     {
-        std::array<World_Chunk*, static_cast<std::size_t>(World_Chunk_Neighbour::COUNT)> missings{};
+        std::array<Chunk*, static_cast<std::size_t>(ChunkNeighbour::COUNT)> missings{};
         auto missings_iter = missings.begin();
 
-        for (auto neighbour : chunk->Neighbours)
+        for (auto neighbour : chunk->neighbours)
         {
-            if (neighbour->Stage.load(std::memory_order_acquire) >= World_Chunk_Stage::GenerationComplete) continue;
+            if (neighbour->stage.load(std::memory_order_acquire) >= ChunkStage::GenerationComplete) continue;
 
             *missings_iter = neighbour;
             missings_iter++;
         }
 
         {
-            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
             for (auto iter = missings.begin(); iter != missings_iter; ++iter)
             {
@@ -273,52 +271,52 @@ void World_ChunkManager::LocalLightingJobHandler(World_Chunk* chunk)
 
         if (missings_iter != missings.begin())
         {
-            m_JobQueueCond.notify_one();
+            m_job_queue_cond.notify_one();
             return;
         }
     }
 
     // Above conditionas are met -> start propagating local lights
-    World_Chunk_Stage expected = World_Chunk_Stage::GenerationComplete;
-    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::LocalLightingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
+    ChunkStage expected = ChunkStage::GenerationComplete;
+    if (!chunk->stage.compare_exchange_strong(expected, ChunkStage::LocalLightingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
 
-    World_Light_PropagateInitialSunlight(chunk);
+    world::PropagateInitialSunlight(chunk);
 
-    chunk->Stage.store(World_Chunk_Stage::LocalLightingComplete, std::memory_order_release);
+    chunk->stage.store(ChunkStage::LocalLightingComplete, std::memory_order_release);
 }
 
-void World_ChunkManager::NeighbourLightingJobHandler(World_Chunk* chunk)
+void nitrocraft::world::ChunkManager::NeighbourLightingJobHandler(Chunk* chunk)
 {
-    // Called chunk has to be in Stage==LocalLightingComplete.
-    if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::LocalLightingComplete)
+    // Called chunk has to be in stage==LocalLightingComplete.
+    if (chunk->stage.load(std::memory_order_acquire) < ChunkStage::LocalLightingComplete)
     {
         {
-            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
             EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::LocalLighting });
             EnqueueDedupJob_ThreadUnsafe({ chunk, JobType::NeighbourLighting});
         }
 
-        m_JobQueueCond.notify_one();
+        m_job_queue_cond.notify_one();
 
         return;
     }
 
-    // Called chunk's neighbours have to be in Stage>=LocalLightingComplete state.
+    // Called chunk's neighbours have to be in stage>=LocalLightingComplete state.
     {
-        std::array<World_Chunk*, static_cast<std::size_t>(World_Chunk_Neighbour::COUNT)> missings{};
+        std::array<Chunk*, static_cast<std::size_t>(ChunkNeighbour::COUNT)> missings{};
         auto missings_iter = missings.begin();
 
-        for (auto neighbour : chunk->Neighbours)
+        for (auto neighbour : chunk->neighbours)
         {
-            if (neighbour->Stage.load(std::memory_order_acquire) >= World_Chunk_Stage::LocalLightingComplete) continue;
+            if (neighbour->stage.load(std::memory_order_acquire) >= ChunkStage::LocalLightingComplete) continue;
 
             *missings_iter = neighbour;
             missings_iter++;
         }
 
         {
-            std::lock_guard<std::mutex> lock{ m_JobQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_job_queue_mutex };
 
             for (auto iter = missings.begin(); iter != missings_iter; ++iter)
             {
@@ -333,18 +331,18 @@ void World_ChunkManager::NeighbourLightingJobHandler(World_Chunk* chunk)
 
         if (missings_iter != missings.begin())
         {
-            m_JobQueueCond.notify_one();
+            m_job_queue_cond.notify_one();
             return;
         }
     }
 
     // Above conditions are met -> called chunk's lighting is complete (for now).
-    World_Chunk_Stage expected = World_Chunk_Stage::LocalLightingComplete;
-    if (!chunk->Stage.compare_exchange_strong(expected, World_Chunk_Stage::NeighbourLightingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
+    ChunkStage expected = ChunkStage::LocalLightingComplete;
+    if (!chunk->stage.compare_exchange_strong(expected, ChunkStage::NeighbourLightingInProgress, std::memory_order_acq_rel, std::memory_order_acquire)) return;
 
     // TODO: neighbour light propagation
 
-    chunk->StorageVersion.fetch_add(1, std::memory_order_relaxed);
+    chunk->storage_version.fetch_add(1, std::memory_order_relaxed);
 
-    chunk->Stage.store(World_Chunk_Stage::NeighbourLightingComplete, std::memory_order_release);
+    chunk->stage.store(ChunkStage::NeighbourLightingComplete, std::memory_order_release);
 }

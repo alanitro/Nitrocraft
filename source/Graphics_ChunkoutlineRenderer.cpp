@@ -4,20 +4,14 @@
 #include <glad/gl.h>
 #include "Graphics_Shader.hpp"
 #include "Utility_IO.hpp"
+#include "Graphics_ChunkOutlineRenderer.hpp"
 
-namespace
+namespace nitrocraft::graphics
 {
-    struct ChunkOutlineGPUMeshHandle
-    {
-        GLuint VertexArrayID;
-        GLuint VertexBufferID;
-    };
 
-    ChunkOutlineGPUMeshHandle GPUMeshHandle;
-
-    Graphics_Shader ChunkOutlineShader;
-
-    const float ChunkOutlineVertices[] =
+namespace 
+{
+    constexpr float s_chunk_outline_vertices[] =
     {
          0.0f,   0.0f,  0.0f,   16.0f,   0.0f,  0.0f,
         16.0f,   0.0f,  0.0f,   16.0f, 256.0f,  0.0f,
@@ -36,56 +30,58 @@ namespace
     };
 }
 
-void Graphics_ChunkOutlineRenderer_Initialize()
+void ChunkOutlineRenderer::Initialize()
 {
-    glGenVertexArrays(1, &GPUMeshHandle.VertexArrayID);
-    glGenBuffers(1, &GPUMeshHandle.VertexBufferID);
+    glGenVertexArrays(1, &m_vertex_array_id);
+    glGenBuffers(1, &m_vertex_buffer_id);
 
-    glBindVertexArray(GPUMeshHandle.VertexArrayID);
-    glBindBuffer(GL_ARRAY_BUFFER, GPUMeshHandle.VertexBufferID);
+    glBindVertexArray(m_vertex_array_id);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertex_buffer_id);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, reinterpret_cast<const void*>(0));
     glEnableVertexAttribArray(0);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(ChunkOutlineVertices), ChunkOutlineVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(s_chunk_outline_vertices), s_chunk_outline_vertices, GL_STATIC_DRAW);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    auto vshader_source_opt = IO_ReadFile("resource/shader/ChunkOutline.vert.glsl");
+    auto vshader_source_opt = utility::ReadFile("resource/shader/ChunkOutline.vert.glsl");
     if (vshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/ChunkOutline.vert.glsl.");
         return;
     }
 
-    auto fshader_source_opt = IO_ReadFile("resource/shader/ChunkOutline.frag.glsl");
+    auto fshader_source_opt = utility::ReadFile("resource/shader/ChunkOutline.frag.glsl");
     if (fshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/ChunkOutline.frag.glsl.");
         return;
     }
 
-    ChunkOutlineShader.Create(vshader_source_opt.value(), fshader_source_opt.value());
+    m_chunk_outline_shader.Create(vshader_source_opt.value(), fshader_source_opt.value());
 }
 
-void Graphics_ChunkOutlineRenderer_Terminate()
+void ChunkOutlineRenderer::Terminate()
 {
-    glDeleteVertexArrays(1, &GPUMeshHandle.VertexArrayID);
-    glDeleteBuffers(1, &GPUMeshHandle.VertexBufferID);
+    glDeleteVertexArrays(1, &m_vertex_array_id);
+    glDeleteBuffers(1, &m_vertex_buffer_id);
 
-    ChunkOutlineShader.Destroy();
+    m_chunk_outline_shader.Destroy();
 }
 
-void Graphics_ChunkOutlineRenderer_Render(const Camera& camera, World_Position chunk_offset)
+void ChunkOutlineRenderer::Render(const glm::mat4 & model_view_proj, glm::vec3 chunk_offset)
 {
-    ChunkOutlineShader.Use();
-    ChunkOutlineShader.SetUniform("u_ChunkPosition", chunk_offset);
-    ChunkOutlineShader.SetUniform("u_MVP", camera.GetViewProjection());
+    m_chunk_outline_shader.Use();
+    m_chunk_outline_shader.SetUniform("u_ChunkPosition", chunk_offset);
+    m_chunk_outline_shader.SetUniform("u_MVP", model_view_proj);
 
-    glBindVertexArray(GPUMeshHandle.VertexArrayID);
+    glBindVertexArray(m_vertex_array_id);
 
-    glDrawArrays(GL_LINES, 0, sizeof(ChunkOutlineVertices) / (sizeof(float) * 3));
+    glDrawArrays(GL_LINES, 0, sizeof(s_chunk_outline_vertices) / (sizeof(float) * 3));
 
     glBindVertexArray(0);
 }
+
+} // namespace nitrocraft::graphics

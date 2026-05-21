@@ -4,10 +4,11 @@
 #include <print>
 #include <glm/gtc/type_ptr.hpp>
 
+namespace nitrocraft::graphics
+{
+
 namespace
 {
-    GLuint Graphics_Shader_CurrentlyBoundID = 0;
-
     GLuint LoadShaderProgram(const std::string& vshader_source, const std::string& fshader_source)
     {
         const char* vshader_source_raw = vshader_source.c_str();
@@ -68,125 +69,129 @@ namespace
     }
 }
 
-Graphics_Shader::Graphics_Shader() = default;
+GLuint Shader::s_currenly_bound_id = 0;
 
-Graphics_Shader::~Graphics_Shader()
+Shader::Shader() = default;
+
+Shader::~Shader()
 {
-    if (m_ShaderProgramID != 0)
+    if (m_shader_program_id != 0)
     {
-        glDeleteProgram(m_ShaderProgramID);
+        glDeleteProgram(m_shader_program_id);
     }
 }
 
-void Graphics_Shader::Create(const std::string& vshader_source, const std::string& fshader_source)
+void Shader::Create(const std::string& vshader_source, const std::string& fshader_source)
 {
     Destroy();
 
-    m_ShaderProgramID = LoadShaderProgram(vshader_source, fshader_source);
+    m_shader_program_id = LoadShaderProgram(vshader_source, fshader_source);
 }
 
-void Graphics_Shader::Destroy()
+void Shader::Destroy()
 {
-    if (Graphics_Shader_CurrentlyBoundID == m_ShaderProgramID)
+    if (s_currenly_bound_id == m_shader_program_id)
     {
         glUseProgram(0);
 
-        Graphics_Shader_CurrentlyBoundID = 0;
+        s_currenly_bound_id = 0;
     }
 
-    glDeleteProgram(m_ShaderProgramID);
+    glDeleteProgram(m_shader_program_id);
 
-    m_ShaderProgramID = 0;
+    m_shader_program_id = 0;
 
-    m_UniformLocationCache.clear();
+    m_uniform_location_cache.clear();
 }
 
-void Graphics_Shader::Use()
+void Shader::Use()
 {
-    assert(m_ShaderProgramID != 0);
+    assert(m_shader_program_id != 0);
 
-    if (Graphics_Shader_CurrentlyBoundID == m_ShaderProgramID) { return; }
+    if (s_currenly_bound_id == m_shader_program_id) { return; }
 
-    glUseProgram(m_ShaderProgramID);
+    glUseProgram(m_shader_program_id);
 
-    Graphics_Shader_CurrentlyBoundID = m_ShaderProgramID;
+    s_currenly_bound_id = m_shader_program_id;
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, bool value)
+void Shader::SetUniform(const std::string& uniform_name, bool value)
 {
     Use();
 
     glUniform1i(GetUniformLocation(uniform_name), static_cast<int>(value));
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, int value)
+void Shader::SetUniform(const std::string& uniform_name, int value)
 {
     Use();
 
     glUniform1i(GetUniformLocation(uniform_name), value);
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, float value)
+void Shader::SetUniform(const std::string& uniform_name, float value)
 {
     Use();
 
     glUniform1f(GetUniformLocation(uniform_name), value);
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, glm::vec2 value)
+void Shader::SetUniform(const std::string& uniform_name, glm::vec2 value)
 {
     Use();
 
     glUniform2f(GetUniformLocation(uniform_name), value.x, value.y);
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, glm::vec3 value)
+void Shader::SetUniform(const std::string& uniform_name, glm::vec3 value)
 {
     Use();
 
     glUniform3f(GetUniformLocation(uniform_name), value.x, value.y, value.z);
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, glm::vec4 value)
+void Shader::SetUniform(const std::string& uniform_name, glm::vec4 value)
 {
     Use();
 
     glUniform4f(GetUniformLocation(uniform_name), value.x, value.y, value.z, value.w);
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, const glm::mat2& value)
+void Shader::SetUniform(const std::string& uniform_name, const glm::mat2& value)
 {
     Use();
 
     glUniformMatrix2fv(GetUniformLocation(uniform_name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, const glm::mat3& value)
+void Shader::SetUniform(const std::string& uniform_name, const glm::mat3& value)
 {
     Use();
 
     glUniformMatrix3fv(GetUniformLocation(uniform_name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Graphics_Shader::SetUniform(const std::string& uniform_name, const glm::mat4& value)
+void Shader::SetUniform(const std::string& uniform_name, const glm::mat4& value)
 {
     Use();
 
     glUniformMatrix4fv(GetUniformLocation(uniform_name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-GLint Graphics_Shader::GetUniformLocation(const std::string& uniform_name)
+GLint Shader::GetUniformLocation(const std::string& uniform_name)
 {
-    if (auto iter = m_UniformLocationCache.find(uniform_name); iter != m_UniformLocationCache.end())
+    if (auto iter = m_uniform_location_cache.find(uniform_name); iter != m_uniform_location_cache.end())
     {
         return iter->second;
     }
 
-    GLint uniform_location = glGetUniformLocation(m_ShaderProgramID, uniform_name.c_str());
+    GLint uniform_location = glGetUniformLocation(m_shader_program_id, uniform_name.c_str());
 
-    m_UniformLocationCache.emplace(uniform_name, uniform_location);
+    m_uniform_location_cache.emplace(uniform_name, uniform_location);
 
     if (uniform_location == -1) std::println("OpenGL Error: Uniform location not found.");
 
     return uniform_location;
 }
+
+} // namespace nitrocraft::graphics

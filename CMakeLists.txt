@@ -18,8 +18,8 @@ add_executable(${PROJECT_NAME}
     source/World_Chunk.cpp
     source/World_ChunkManager.hpp
     source/World_ChunkManager.cpp
-    source/World_Generation.hpp
-    source/World_Generation.cpp
+    source/World_TerrainGenerator.hpp
+    source/World_TerrainGenerator.cpp
     source/World_Light.hpp
     source/World_Light.cpp
 
@@ -33,6 +33,8 @@ add_executable(${PROJECT_NAME}
     source/Graphics_WorldRenderer.cpp
     source/Graphics_BlockOutlineRenderer.hpp
     source/Graphics_BlockOutlineRenderer.cpp
+    source/Graphics_ChunkOutlineRenderer.hpp
+    source/Graphics_ChunkOutlineRenderer.cpp
 
     source/Utility_Time.hpp
     source/Utility_Timer.hpp
@@ -41,7 +43,7 @@ add_executable(${PROJECT_NAME}
     source/Utility_BlockingQueue.hpp
     source/Utility_IO.hpp
     source/Utility_IO.cpp
- "source/Graphics_ChunkoutlineRenderer.cpp")
+)
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 

@@ -6,10 +6,13 @@
 #include "World_Coordinate.hpp"
 #include "World_Chunk.hpp"
 
+namespace nitrocraft::graphics
+{
+
 namespace
 {
     // Front face quad vertices are laid out in counter clock wise order.
-    constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(World_Block_Face::COUNT)> BLOCK_FACES
+    constexpr std::array<std::array<float, 12>, static_cast<std::size_t>(world::BlockFace::COUNT)> BLOCK_FACES
     {
         std::array<float, 12>
         {
@@ -67,7 +70,7 @@ namespace
         );
     }
 
-    constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(World_Block_ID::COUNT)][static_cast<int>(World_Block_Face::COUNT)]
+    constexpr glm::vec2 BLOCK_TILEMAP_OFFSETS[static_cast<int>(world::BlockID::COUNT)][static_cast<int>(world::BlockFace::COUNT)]
     {
         { TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0),  TI(0,0)  }, // Air == Null
         { TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0),  TI(1,0)  }, // Stone
@@ -84,26 +87,26 @@ namespace
     };
 }
 
-Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk)
+ChunkCPUMesh GenerateChunkCPUMesh(const world::Chunk* chunk)
 {
-    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk) };
+    ChunkCPUMesh cpumesh{ const_cast<world::Chunk*>(chunk) };
 
-    World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
+    world::GlobalXYZ chunk_offset = world::FromChunkIDToChunkOffset(chunk->id);
 
-    for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
-    for (int lx = 0; lx < World_CHUNK_X_SIZE; lx++)
-    for (int ly = 0; ly < World_CHUNK_Y_SIZE; ly++)
+    for (int lz = 0; lz < world::CHUNK_Z_SIZE; lz++)
+    for (int lx = 0; lx < world::CHUNK_X_SIZE; lx++)
+    for (int ly = 0; ly < world::CHUNK_Y_SIZE; ly++)
     {
         // Block face detection
-        World_Block block = chunk->GetBlockAt(World_LocalXYZ(lx, ly, lz));
+        world::Block block = chunk->GetBlockAt(world::LocalXYZ(lx, ly, lz));
 
-        if (block.ID == World_Block_ID::AIR) continue;
+        if (block.id == world::BlockID::AIR) continue;
 
-        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(World_LocalXYZ(lx, ly, lz));
+        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(world::LocalXYZ(lx, ly, lz));
 
         std::uint32_t blockface_bitmask = 0;
 
-        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        for (std::size_t face = (std::size_t)world::BlockFace::XN; face <= (std::size_t)world::BlockFace::ZP; face++)
         {
             if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
         }
@@ -111,18 +114,18 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chun
         if (blockface_bitmask == 0) continue;
 
         // Chunk Mesh generation
-        World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(lx, ly, lz);
+        world::GlobalXYZ block_offset = chunk_offset + world::GlobalXYZ(lx, ly, lz);
 
-        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(World_LocalXYZ(lx, ly, lz));
+        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(world::LocalXYZ(lx, ly, lz));
 
-        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        for (std::size_t face = (std::size_t)world::BlockFace::XN; face <= (std::size_t)world::BlockFace::ZP; face++)
         {
             if (!(blockface_bitmask & (1u << face))) continue;
 
             // Populate vertices 
             const auto& block_face = BLOCK_FACES[(std::size_t)face];
 
-            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
+            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.id][(std::size_t)face];
 
             for (int vi = 0; vi < 4; vi++)
             {
@@ -130,7 +133,7 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chun
 
                 constexpr float w = 1.0f / 16.0f;
 
-                cpumesh.Vertices.emplace_back(
+                cpumesh.vertices.emplace_back(
                     block_face[vertex_base + 0] + block_offset.x,
                     block_face[vertex_base + 1] + block_offset.y,
                     block_face[vertex_base + 2] + block_offset.z,
@@ -142,9 +145,9 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chun
             }
 
             // Populate indices
-            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.Vertices.size() - 4);
-            cpumesh.Indices.insert(
-                cpumesh.Indices.end(),
+            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.vertices.size() - 4);
+            cpumesh.indices.insert(
+                cpumesh.indices.end(),
                 {
                     base_index + 0, base_index + 1, base_index + 2,
                     base_index + 0, base_index + 2, base_index + 3
@@ -159,14 +162,14 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chun
 namespace
 {
     // AO Values
-    float AOValues[] = { 0.1f, 0.25f, 0.5f, 1.0f };
+    float s_ao_values[] = { 0.1f, 0.25f, 0.5f, 1.0f };
 
     // [0,4): quad vertex index. 0 -> 1 -> 2 and 0 -> 2 -> 3 (front face quad counter clockwise)
     // 3 --- 2
     // |     |    <- front face
     // 0 --- 1
     // [0, 3): 0==side1, 1==side2, 2==corner
-    constexpr int NeighbourBlockIndicesPerFaceVertex[(std::size_t)World_Block_Face::COUNT][4][3] =
+    constexpr int s_neighbour_block_indices_per_face[(std::size_t)world::BlockFace::COUNT][4][3] =
     {
         // Face XN
         {
@@ -225,26 +228,26 @@ namespace
     }
 }
 
-Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk)
+ChunkCPUMesh GenerateChunkCPUMesh_AmbientOcclusion(const world::Chunk* chunk)
 {
-    Graphics_ChunkCPUMesh cpumesh{ const_cast<World_Chunk*>(chunk) };
+    ChunkCPUMesh cpumesh{ const_cast<world::Chunk*>(chunk) };
 
-    World_GlobalXYZ chunk_offset = World_FromChunkIDToChunkOffset(chunk->ID);
+    world::GlobalXYZ chunk_offset = world::FromChunkIDToChunkOffset(chunk->id);
 
-    for (int lz = 0; lz < World_CHUNK_Z_SIZE; lz++)
-    for (int lx = 0; lx < World_CHUNK_X_SIZE; lx++)
-    for (int ly = 0; ly < World_CHUNK_Y_SIZE; ly++)
+    for (int lz = 0; lz < world::CHUNK_Z_SIZE; lz++)
+    for (int lx = 0; lx < world::CHUNK_X_SIZE; lx++)
+    for (int ly = 0; ly < world::CHUNK_Y_SIZE; ly++)
     {
         // Block face detection
-        World_Block block = chunk->GetBlockAt(World_LocalXYZ(lx, ly, lz));
+        world::Block block = chunk->GetBlockAt(world::LocalXYZ(lx, ly, lz));
 
-        if (block.ID == World_Block_ID::AIR) continue;
+        if (block.id == world::BlockID::AIR) continue;
 
-        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(World_LocalXYZ(lx, ly, lz));
+        auto neighbour_blocks = chunk->GetWholeNeighbourBlocksAt(world::LocalXYZ(lx, ly, lz));
 
         std::uint32_t blockface_bitmask = 0;
 
-        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        for (std::size_t face = (std::size_t)world::BlockFace::XN; face <= (std::size_t)world::BlockFace::ZP; face++)
         {
             if (neighbour_blocks[face].IsTransparent()) blockface_bitmask |= (1u << (std::uint32_t)face);
         }
@@ -252,18 +255,18 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
         if (blockface_bitmask == 0) continue;
 
         // Chunk mesh generation
-        World_GlobalXYZ block_offset = chunk_offset + World_GlobalXYZ(lx, ly, lz);
+        world::GlobalXYZ block_offset = chunk_offset + world::GlobalXYZ(lx, ly, lz);
 
-        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(World_LocalXYZ(lx, ly, lz));
+        auto neighbour_lights = chunk->GetCrossNeighbourLightsAt(world::LocalXYZ(lx, ly, lz));
 
-        for (std::size_t face = (std::size_t)World_Block_Face::XN; face <= (std::size_t)World_Block_Face::ZP; face++)
+        for (std::size_t face = (std::size_t)world::BlockFace::XN; face <= (std::size_t)world::BlockFace::ZP; face++)
         {
             if (!(blockface_bitmask & (1u << face))) continue;
 
             // Populate vertices 
             const auto& block_face = BLOCK_FACES[(std::size_t)face];
 
-            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.ID][(std::size_t)face];
+            glm::vec2 tile_map_offset = BLOCK_TILEMAP_OFFSETS[(std::size_t)block.id][(std::size_t)face];
 
             int ao_states[4];
 
@@ -273,13 +276,13 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
 
                 constexpr float w = 1.0f / 16.0f;
 
-                int side1_block_index  = NeighbourBlockIndicesPerFaceVertex[face][vi][0];
-                int side2_block_index  = NeighbourBlockIndicesPerFaceVertex[face][vi][1];
-                int corner_block_index = NeighbourBlockIndicesPerFaceVertex[face][vi][2];
+                int side1_block_index  = s_neighbour_block_indices_per_face[face][vi][0];
+                int side2_block_index  = s_neighbour_block_indices_per_face[face][vi][1];
+                int corner_block_index = s_neighbour_block_indices_per_face[face][vi][2];
 
-                World_Block side1  = neighbour_blocks[side1_block_index];
-                World_Block side2  = neighbour_blocks[side2_block_index];
-                World_Block corner = neighbour_blocks[corner_block_index];
+                world::Block side1  = neighbour_blocks[side1_block_index];
+                world::Block side2  = neighbour_blocks[side2_block_index];
+                world::Block corner = neighbour_blocks[corner_block_index];
 
                 ao_states[vi] = GetAOState(
                     side1.IsOpaque()  ? 1 : 0,
@@ -287,7 +290,7 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
                     corner.IsOpaque() ? 1 : 0
                 );
 
-                cpumesh.Vertices.emplace_back(
+                cpumesh.vertices.emplace_back(
                     block_face[vertex_base + 0] + block_offset.x,
                     block_face[vertex_base + 1] + block_offset.y,
                     block_face[vertex_base + 2] + block_offset.z,
@@ -300,12 +303,12 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
             }
 
             // Populate indices
-            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.Vertices.size() - 4);
+            std::uint32_t base_index = static_cast<std::uint32_t>(cpumesh.vertices.size() - 4);
 
             if (ao_states[1] + ao_states[3] <= ao_states[0] + ao_states[2])
             {
-                cpumesh.Indices.insert(
-                    cpumesh.Indices.end(),
+                cpumesh.indices.insert(
+                    cpumesh.indices.end(),
                     {
                         base_index + 0, base_index + 1, base_index + 2,
                         base_index + 0, base_index + 2, base_index + 3,
@@ -314,8 +317,8 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
             }
             else
             {
-                cpumesh.Indices.insert(
-                    cpumesh.Indices.end(),
+                cpumesh.indices.insert(
+                    cpumesh.indices.end(),
                     {
                         base_index + 0, base_index + 1, base_index + 3,
                         base_index + 1, base_index + 2, base_index + 3,
@@ -328,37 +331,40 @@ Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const 
     return cpumesh;
 }
 
-Graphics_ChunkGPUMeshHandle::Graphics_ChunkGPUMeshHandle()
+ChunkGPUMeshHandle::ChunkGPUMeshHandle()
 {
-    glGenVertexArrays(1, &VertexArrayID);
-    glGenBuffers(1, &VertexBufferID);
-    glGenBuffers(1, &IndexBufferID);
+    glGenVertexArrays(1, &vertex_array_id);
+    glGenBuffers(1, &vertex_buffer_id);
+    glGenBuffers(1, &index_buffer_id);
 
-    glBindVertexArray(VertexArrayID);
-    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+    glBindVertexArray(vertex_array_id);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, X)));
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, S)));
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, F)));
-    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, L)));
-    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, sizeof(Graphics_ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(Graphics_ChunkMeshVertexLayout, AO)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(ChunkMeshVertexLayout, x)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(ChunkMeshVertexLayout, s)));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE,  sizeof(ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(ChunkMeshVertexLayout, f)));
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE,  sizeof(ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(ChunkMeshVertexLayout, l)));
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE,  sizeof(ChunkMeshVertexLayout), reinterpret_cast<const void*>(offsetof(ChunkMeshVertexLayout, ao)));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
     glEnableVertexAttribArray(3);
     glEnableVertexAttribArray(4);
 
-    IndicesCount = 0;
+    indices_count = 0;
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-Graphics_ChunkGPUMeshHandle::~Graphics_ChunkGPUMeshHandle()
+ChunkGPUMeshHandle::~ChunkGPUMeshHandle()
 {
-    glDeleteVertexArrays(1, &VertexArrayID);
-    glDeleteBuffers(1, &VertexBufferID);
-    glDeleteBuffers(1, &IndexBufferID);
+    glDeleteVertexArrays(1, &vertex_array_id);
+    glDeleteBuffers(1, &vertex_buffer_id);
+    glDeleteBuffers(1, &index_buffer_id);
 }
+
+} // namespace nitrocraft::graphics
+

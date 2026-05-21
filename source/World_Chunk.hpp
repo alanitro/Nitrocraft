@@ -12,18 +12,21 @@
 #include "Utility_Array2D.hpp"
 #include "Utility_Array3D.hpp"
 
-using World_Chunk_BlockData  = Array3D<World_Block, World_CHUNK_X_SIZE, World_CHUNK_Y_SIZE, World_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
-using World_Chunk_LightData  = Array3D<World_Light, World_CHUNK_X_SIZE, World_CHUNK_Y_SIZE, World_CHUNK_Z_SIZE, Array3DStoreOrder::YXZ>;
-using World_Chunk_HeightData = Array2D<std::uint8_t, World_CHUNK_X_SIZE, World_CHUNK_Z_SIZE, Array2DStoreOrder::YX>;
-
-struct World_Chunk_Storage
+namespace nitrocraft::world
 {
-    World_Chunk_BlockData  Blocks;
-    World_Chunk_LightData  Lights;
-    World_Chunk_HeightData Heights;
+
+using ChunkBlockData  = utility::Array3D<Block, CHUNK_X_SIZE, CHUNK_Y_SIZE, CHUNK_Z_SIZE, utility::Array3DStoreOrder::YXZ>;
+using ChunkLightData  = utility::Array3D<LightLevel, CHUNK_X_SIZE, CHUNK_Y_SIZE, CHUNK_Z_SIZE, utility::Array3DStoreOrder::YXZ>;
+using ChunkHeightData = utility::Array2D<std::uint8_t, CHUNK_X_SIZE, CHUNK_Z_SIZE, utility::Array2DStoreOrder::YX>;
+
+struct ChunkStorage
+{
+    ChunkBlockData  blocks;
+    ChunkLightData  lights;
+    ChunkHeightData heights;
 };
 
-enum class World_Chunk_Neighbour
+enum class ChunkNeighbour
 {
     XNZ0,
     XPZ0,
@@ -37,7 +40,7 @@ enum class World_Chunk_Neighbour
     COUNT,
 };
 
-enum class World_Chunk_Stage
+enum class ChunkStage
 {
     // Stage==Empty: Initial stage of this chunk after allocation.
     // All allocated chunks are guaranteed to be associated with neighbours (Chunk holds valid neighbour chunks' pointer).
@@ -58,46 +61,48 @@ enum class World_Chunk_Stage
     NeighbourLightingComplete,
 };
 
-struct World_Chunk
+struct Chunk
 {
-    const World_Chunk_ID ID;
+    const ChunkID id;
 
-    std::atomic<World_Chunk_Stage> Stage = World_Chunk_Stage::Empty;
+    std::atomic<ChunkStage> stage = ChunkStage::Empty;
 
     // Job deduplicate bitmask (GEN=1, LOCAL_LIGHT=2, NEIGHBOUR_LIGHT=4, MESH=8).
     // Stores the job type the chunk is currently queued for.
-    // Example, when the chunk is in queue for JobType::Generation, EnqueuedStates |= GEN.
-    // Example, when the chunk is poped out of queue for JobType::Generation, EnqueuedStates &= ~GEN.
+    // Example, when the chunk is in queue for JobType::Generation, enqueued_states |= GEN.
+    // Example, when the chunk is poped out of queue for JobType::Generation, enqueued_states &= ~GEN.
     // This is to avoid duplicate enqueuing of jobs of same type.
-    std::atomic<std::uint8_t> EnqueuedStates = 0;
+    std::atomic<std::uint8_t> enqueued_states = 0;
 
-    bool HasModified = false;
+    bool has_modified = false;
 
-    std::array<World_Chunk*, (std::size_t)World_Chunk_Neighbour::COUNT> Neighbours{};
-    std::atomic<bool> NeighboursSet = false;
+    std::array<Chunk*, (std::size_t)ChunkNeighbour::COUNT> neighbours{};
+    std::atomic<bool> neighbours_set = false;
 
-    std::unique_ptr<World_Chunk_Storage> Storage;
-    std::atomic<std::uint32_t>           StorageVersion = 0;
+    std::unique_ptr<ChunkStorage>   storage;
+    std::atomic<std::uint32_t>      storage_version = 0;
 
-    explicit World_Chunk(World_Chunk_ID id) : ID{ id } {}
+    explicit Chunk(ChunkID id) : id{ id } {}
 
-    World_Block GetBlockAt(World_LocalXYZ local) const;
-    World_Light GetLightAt(World_LocalXYZ local) const;
-    World_Light GetSunlightAt(World_LocalXYZ local) const;
-    World_Light GetPointlightAt(World_LocalXYZ local) const;
+    world::Block GetBlockAt(LocalXYZ local) const;
+    LightLevel GetLightAt(LocalXYZ local) const;
+    LightLevel GetSunlightAt(LocalXYZ local) const;
+    LightLevel GetPointlightAt(LocalXYZ local) const;
 
-    void SetBlockAt(World_LocalXYZ local, World_Block block);
-    void SetLightAt(World_LocalXYZ local, World_Light sunlight, World_Light pointlight);
-    void SetSunlightAt(World_LocalXYZ local, World_Light sunlight);
-    void SetPointlightAt(World_LocalXYZ local, World_Light pointlight);
+    void SetBlockAt(LocalXYZ local, Block block);
+    void SetLightAt(LocalXYZ local, LightLevel sunlight, LightLevel pointlight);
+    void SetSunlightAt(LocalXYZ local, LightLevel sunlight);
+    void SetPointlightAt(LocalXYZ local, LightLevel pointlight);
 
     int  GetHeightAt(int local_x, int local_z) const;
     int  GetMaxHeight() const;
 
-    std::array<World_Block, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
-        GetCrossNeighbourBlocksAt(World_LocalXYZ local) const;
-    std::array<World_Light, static_cast<std::size_t>(World_Block_CrossNeighbour::Count)>
-        GetCrossNeighbourLightsAt(World_LocalXYZ local) const;
-    std::array<World_Block, static_cast<std::size_t>(World_Block_WholeNeighbour::Count)>
-        GetWholeNeighbourBlocksAt(World_LocalXYZ local) const;
+    std::array<Block, static_cast<std::size_t>(BlockCrossNeighbour::Count)>
+        GetCrossNeighbourBlocksAt(LocalXYZ local) const;
+    std::array<LightLevel, static_cast<std::size_t>(BlockCrossNeighbour::Count)>
+        GetCrossNeighbourLightsAt(LocalXYZ local) const;
+    std::array<Block, static_cast<std::size_t>(BlockWholeNeighbour::Count)>
+        GetWholeNeighbourBlocksAt(LocalXYZ local) const;
 };
+
+} // namespace nitrocraft::world

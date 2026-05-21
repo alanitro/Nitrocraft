@@ -1,8 +1,11 @@
 #include "World_Block.hpp"
 
+namespace nitrocraft::world
+{
+
 namespace
 {
-    constexpr std::string_view BLOCK_NAMES[static_cast<std::size_t>(World_Block_ID::COUNT)]
+    constexpr std::string_view BLOCK_NAMES[static_cast<std::size_t>(BlockID::COUNT)]
     {
         "Air",
         "Stone",
@@ -19,7 +22,9 @@ namespace
     };
 }
 
-std::string_view World_Block::GetBlockName() const
+std::string_view Block::GetBlockName() const
 {
-    return BLOCK_NAMES[static_cast<std::size_t>(ID)];
+    return BLOCK_NAMES[static_cast<std::size_t>(id)];
 }
+
+} // namespace nitrocraft::world

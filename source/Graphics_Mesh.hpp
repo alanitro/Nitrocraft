@@ -5,41 +5,44 @@
 #include <vector>
 #include <atomic>
 #include <glad/gl.h>
+#include "World_chunk.hpp"
 
-struct World_Chunk;
-
-struct Graphics_ChunkMeshVertexLayout
+namespace nitrocraft::graphics
 {
-    float        X;  // Vertex position (x,y,z)
-    float        Y;
-    float        Z;
-    float        S;  // Texture coordinate (s,t)
-    float        T;
-    std::uint8_t F;  // Face
-    std::uint8_t L;  // Light
-    std::uint8_t AO; // Ambient Occlusion Level [0,3]
+
+struct ChunkMeshVertexLayout
+{
+    float        x;  // Vertex position (x,y,z)
+    float        y;
+    float        z;
+    float        s;  // Texture coordinate (s,t)
+    float        t;
+    std::uint8_t f;  // Face
+    std::uint8_t l;  // Light
+    std::uint8_t ao; // Ambient Occlusion Level [0,3]
 };
 
-struct Graphics_ChunkCPUMesh
+struct ChunkCPUMesh
 {
-    World_Chunk*  MeshedChunk;
-    std::uint32_t CompletedVersion;
-    std::vector<Graphics_ChunkMeshVertexLayout> Vertices;
-    std::vector<std::uint32_t>                  Indices;
+    world::Chunk*                      meshed_chunk;
+    std::uint32_t                      completed_version;
+    std::vector<ChunkMeshVertexLayout> vertices;
+    std::vector<std::uint32_t>         indices;
 };
 
-Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh(const World_Chunk* chunk);
+ChunkCPUMesh GenerateChunkCPUMesh(const world::Chunk* chunk);
 
-Graphics_ChunkCPUMesh Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(const World_Chunk* chunk);
+ChunkCPUMesh GenerateChunkCPUMesh_AmbientOcclusion(const world::Chunk* chunk);
 
-struct Graphics_ChunkGPUMeshHandle
+struct ChunkGPUMeshHandle
 {
-    GLuint        VertexArrayID;
-    GLuint        VertexBufferID;
-    GLuint        IndexBufferID;
-    std::uint32_t IndicesCount;
+    GLuint        vertex_array_id;
+    GLuint        vertex_buffer_id;
+    GLuint        index_buffer_id;
+    std::uint32_t indices_count;
 
-    Graphics_ChunkGPUMeshHandle();
-
-    ~Graphics_ChunkGPUMeshHandle();
+    ChunkGPUMeshHandle();
+    ~ChunkGPUMeshHandle();
 };
+
+} // namespace nitrocraft::graphics

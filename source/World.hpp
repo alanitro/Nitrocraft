@@ -10,20 +10,38 @@
 class Camera;
 struct World_Chunk;
 
-void                    World_Initialize();
-void                    World_Terminate();
-void                    World_Update(const Camera& camera);
+namespace nitrocraft::world
+{
 
-float                   World_GetSunlightIntensity();
-glm::vec3               World_GetSkyColor();
+struct RayResult
+{
+    GlobalXYZ position;
+    BlockFace face;
+};
 
-World_Block             World_GetBlockAt(World_GlobalXYZ global);
-World_Light             World_GetLightAt(World_GlobalXYZ global);
+class World
+{
+public:
+    void Initialize();
+    void Terminate();
+    void Update(const Camera& camera);
 
-const World_Chunk*      World_GetChunkAt(World_GlobalXYZ global);
+    float GetSunlightIntensity() const;
+    glm::vec3 GetSkyColor() const;
 
-const World_ChunkManager& World_GetChunkManager();
+    Block GetBlockAt(GlobalXYZ global) const;
+    LightLevel GetLightAt(GlobalXYZ global) const;
 
-void World_SetRenderDistance(std::size_t render_distance);
+    const Chunk* GetChunkAt(GlobalXYZ global) const;
 
-std::optional<std::pair<World_GlobalXYZ, World_Block_Face>> World_CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length);
+    const ChunkManager& GetChunkManager() const;
+
+    void SetRenderDistance(std::size_t render_distance);
+
+    std::optional<RayResult> CastRay(glm::vec3 ray_origin, glm::vec3 ray_direction, float ray_length) const;
+
+private:
+    ChunkManager m_chunk_manager;
+};
+
+} // namespace nitrocraft::world

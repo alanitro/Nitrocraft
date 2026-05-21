@@ -5,109 +5,104 @@
 #include "Graphics_Shader.hpp"
 #include "Utility_IO.hpp"
 
+namespace nitrocraft::graphics
+{
+
 namespace
 {
-    struct BlockOutlineGPUMeshHandle
+    float s_block_outline_vertices[]
     {
-        GLuint VertexArrayID;
-        GLuint VertexBufferID;
-    };
+       -0.004f, -0.004f, -0.004f,
+        1.004f, -0.004f, -0.004f,
 
-    BlockOutlineGPUMeshHandle GPUMeshHandle;
+        1.004f, -0.004f, -0.004f,
+        1.004f,  1.004f, -0.004f,
 
-    Graphics_Shader BlockOutlineShader;
+        1.004f,  1.004f, -0.004f,
+       -0.004f,  1.004f, -0.004f,
 
-    float BlockOutlineVertices[]
-    {
-        -0.004f, -0.004f, -0.004f,
-         1.004f, -0.004f, -0.004f,
+       -0.004f,  1.004f, -0.004f,
+       -0.004f, -0.004f, -0.004f,
 
-         1.004f, -0.004f, -0.004f,
-         1.004f,  1.004f, -0.004f,
+       -0.004f, -0.004f, -0.004f,
+       -0.004f, -0.004f,  1.004f,
 
-         1.004f,  1.004f, -0.004f,
-        -0.004f,  1.004f, -0.004f,
+        1.004f, -0.004f, -0.004f,
+        1.004f, -0.004f,  1.004f,
 
-        -0.004f,  1.004f, -0.004f,
-        -0.004f, -0.004f, -0.004f,
+        1.004f,  1.004f, -0.004f,
+        1.004f,  1.004f,  1.004f,
 
-        -0.004f, -0.004f, -0.004f,
-        -0.004f, -0.004f,  1.004f,
+       -0.004f,  1.004f, -0.004f,
+       -0.004f,  1.004f,  1.004f,
 
-         1.004f, -0.004f, -0.004f,
-         1.004f, -0.004f,  1.004f,
+       -0.004f, -0.004f,  1.004f,
+        1.004f, -0.004f,  1.004f,
 
-         1.004f,  1.004f, -0.004f,
-         1.004f,  1.004f,  1.004f,
+        1.004f, -0.004f,  1.004f,
+        1.004f,  1.004f,  1.004f,
 
-        -0.004f,  1.004f, -0.004f,
-        -0.004f,  1.004f,  1.004f,
+        1.004f,  1.004f,  1.004f,
+       -0.004f,  1.004f,  1.004f,
 
-        -0.004f, -0.004f,  1.004f,
-         1.004f, -0.004f,  1.004f,
-
-         1.004f, -0.004f,  1.004f,
-         1.004f,  1.004f,  1.004f,
-
-         1.004f,  1.004f,  1.004f,
-        -0.004f,  1.004f,  1.004f,
-
-        -0.004f,  1.004f,  1.004f,
-        -0.004f, -0.004f,  1.004f,
+       -0.004f,  1.004f,  1.004f,
+       -0.004f, -0.004f,  1.004f,
     };
 }
 
-void Graphics_BlockOutlineRenderer_Initialize()
+void BlockOutlineRenderer::Initialize()
 {
-    glGenVertexArrays(1, &GPUMeshHandle.VertexArrayID);
-    glGenBuffers(1, &GPUMeshHandle.VertexBufferID);
+    glGenVertexArrays(1, &m_vertex_array_id);
+    glGenBuffers(1, &m_vertex_buffer_id);
 
-    glBindVertexArray(GPUMeshHandle.VertexArrayID);
-    glBindBuffer(GL_ARRAY_BUFFER, GPUMeshHandle.VertexBufferID);
+    glBindVertexArray(m_vertex_array_id);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vertex_buffer_id);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, reinterpret_cast<const void*>(0));
     glEnableVertexAttribArray(0);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(BlockOutlineVertices), BlockOutlineVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(s_block_outline_vertices), s_block_outline_vertices, GL_STATIC_DRAW);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-    auto vshader_source_opt = IO_ReadFile("resource/shader/BlockOutline.vert.glsl");
+    auto vshader_source_opt = utility::ReadFile("resource/shader/BlockOutline.vert.glsl");
     if (vshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/BlockOutline.vert.glsl.");
         return;
     }
 
-    auto fshader_source_opt = IO_ReadFile("resource/shader/BlockOutline.frag.glsl");
+    auto fshader_source_opt = utility::ReadFile("resource/shader/BlockOutline.frag.glsl");
     if (fshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/BlockOutline.frag.glsl.");
         return;
     }
 
-    BlockOutlineShader.Create(vshader_source_opt.value(), fshader_source_opt.value());
+    m_block_outline_shader.Create(vshader_source_opt.value(), fshader_source_opt.value());
 }
 
-void Graphics_BlockOutlineRenderer_Terminate()
+void BlockOutlineRenderer::Terminate()
 {
-    glDeleteVertexArrays(1, &GPUMeshHandle.VertexArrayID);
-    glDeleteBuffers(1, &GPUMeshHandle.VertexBufferID);
+    glDeleteVertexArrays(1, &m_vertex_array_id);
+    glDeleteBuffers(1, &m_vertex_buffer_id);
 
-    BlockOutlineShader.Destroy();
+    m_block_outline_shader.Destroy();
 }
 
-void Graphics_BlockOutlineRenderer_Render(const Camera& camera, World_Position block_position)
+void BlockOutlineRenderer::Render(const glm::mat4 & model_view_proj, glm::vec3 block_position)
 {
-    BlockOutlineShader.Use();
-    BlockOutlineShader.SetUniform("u_BlockPosition", block_position);
-    BlockOutlineShader.SetUniform("u_MVP", camera.GetViewProjection());
+    m_block_outline_shader.Use();
+    m_block_outline_shader.SetUniform("u_BlockPosition", block_position);
+    m_block_outline_shader.SetUniform("u_MVP", model_view_proj);
 
-    glBindVertexArray(GPUMeshHandle.VertexArrayID);
+    glBindVertexArray(m_vertex_array_id);
 
-    glDrawArrays(GL_LINES, 0, sizeof(BlockOutlineVertices) / (sizeof(float) * 3));
+    glDrawArrays(GL_LINES, 0, sizeof(s_block_outline_vertices) / (sizeof(float) * 3));
 
     glBindVertexArray(0);
 }
+
+} // namespace nitrocraft::graphics

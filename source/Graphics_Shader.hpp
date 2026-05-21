@@ -5,13 +5,16 @@
 #include <glm/glm.hpp>
 #include <glad/gl.h>
 
-class Graphics_Shader
+namespace nitrocraft::graphics
+{
+
+class Shader
 {
 public:
-    Graphics_Shader();
-    ~Graphics_Shader();
-    Graphics_Shader(const Graphics_Shader&) = delete;
-    Graphics_Shader& operator=(const Graphics_Shader&) = delete;
+    Shader();
+    ~Shader();
+    Shader(const Shader&) = delete;
+    Shader& operator=(const Shader&) = delete;
 
     void Create(const std::string& vshader_source, const std::string& fshader_source);
     void Destroy();
@@ -29,10 +32,14 @@ public:
     void SetUniform(const std::string& uniform_name, const glm::mat4& value);
 
 private:
-    GLuint m_ShaderProgramID = 0;
+    static GLuint s_currenly_bound_id;
 
-    std::unordered_map<std::string, GLint> m_UniformLocationCache;
+    GLuint m_shader_program_id = 0;
+
+    std::unordered_map<std::string, GLint> m_uniform_location_cache;
 
 private:
     GLint GetUniformLocation(const std::string& uniform_name);
 };
+
+} // namespace nitrocraft::graphics

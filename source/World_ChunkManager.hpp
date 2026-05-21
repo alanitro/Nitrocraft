@@ -11,38 +11,42 @@
 #include <condition_variable>
 #include "World_Coordinate.hpp"
 #include "World_Chunk.hpp"
+#include "World_TerrainGenerator.hpp"
 
-class World_ChunkManager
+namespace nitrocraft::world
+{
+
+class ChunkManager
 {
 public:
-    World_ChunkManager();
-    ~World_ChunkManager();
+    void Initialize();
+    void Terminate();
 
     // Called from main thread per frame.
-    void SetCenterChunk_MainThread(World_Chunk_ID center_id);
+    void SetCenterChunk_MainThread(ChunkID center_id);
 
-    std::vector<World_Chunk*> GetChunksInRenderArea_MainThread() const;
+    std::vector<Chunk*> GetChunksInRenderArea_MainThread() const;
 
     // Queries
-    std::size_t GetRenderDistance()     const { return m_RenderDistance; }
-    std::size_t GetWorkerThreadCount()  const { return m_WorkerCount; }
-    std::size_t GetLoadedChunkCount()   const { std::lock_guard<std::mutex> lock{ m_ChunkMapMutex }; return m_ChunkMap.size(); };
+    std::size_t GetRenderDistance()     const { return m_render_distance; }
+    std::size_t GetWorkerThreadCount()  const { return m_worker_count; }
+    std::size_t GetLoadedChunkCount()   const { std::lock_guard<std::mutex> lock{ m_chunk_map_mutex }; return m_chunk_map.size(); }
 
-    std::optional<const World_Chunk*> GetChunkAt(World_GlobalXYZ global) const;
+    std::optional<const Chunk*> GetChunkAt(GlobalXYZ global) const;
 
     // Modifiers
     void SetRenderDistance(std::size_t render_distance);
 
 private:
-    std::size_t m_RenderDistance = 6;
+    std::size_t m_render_distance = 6;
 
     std::size_t GetLoadingDistance() const;
     std::size_t GetLoadingDiameter() const;
 
-    World_Chunk_ID m_CurrentChunkID{ -1, -1, -1 };
+    ChunkID m_current_chunk_id{ -1, -1, -1 };
 
-    std::unordered_map<World_Chunk_ID, std::unique_ptr<World_Chunk>> m_ChunkMap;
-    mutable std::mutex m_ChunkMapMutex;
+    std::unordered_map<ChunkID, std::unique_ptr<Chunk>> m_chunk_map;
+    mutable std::mutex m_chunk_map_mutex;
 
     // Chunk construction job system
     enum class JobType
@@ -59,24 +63,28 @@ private:
 
     struct Job
     {
-        World_Chunk* Chunk;
-        JobType      Type;
+        Chunk*  chunk;
+        JobType type;
     };
 
-    std::queue<Job>         m_JobQueue; // TODO: Use priority queue
-    std::atomic<bool>       m_JobRetire = false;
-    std::mutex              m_JobQueueMutex;
-    std::condition_variable m_JobQueueCond;
+    std::queue<Job>         m_job_queue; // TODO: Use priority queue
+    std::atomic<bool>       m_job_retire = false;
+    std::mutex              m_job_queue_mutex;
+    std::condition_variable m_job_queue_cond;
 
-    std::vector<std::jthread> m_Workers;
-    std::size_t m_WorkerCount = 0;
+    std::vector<std::jthread> m_workers;
+    std::size_t m_worker_count = 0;
+
+    TerrainGenerator m_terrain_generator;
 
     void JobLoop();
 
     // Called from worker thread
     void EnqueueDedupJob_ThreadSafeWithNotify(Job job);
     void EnqueueDedupJob_ThreadUnsafe(Job job);
-    void GenerationJobHandler(World_Chunk* chunk);
-    void LocalLightingJobHandler(World_Chunk* chunk);
-    void NeighbourLightingJobHandler(World_Chunk* chunk);
+    void GenerationJobHandler(Chunk* chunk);
+    void LocalLightingJobHandler(Chunk* chunk);
+    void NeighbourLightingJobHandler(Chunk* chunk);
 };
+
+} // namespace nitrocraft::world

@@ -1,9 +1,25 @@
 #pragma once
 
-#include "World_Coordinate.hpp"
-#include "Graphics_Camera.hpp"
+#include <glad/gl.h>
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 
-void Graphics_ChunkOutlineRenderer_Initialize();
-void Graphics_ChunkOutlineRenderer_Terminate();
+namespace nitrocraft::graphics
+{
 
-void Graphics_ChunkOutlineRenderer_Render(const Camera& camera, World_Position chunk_offset);
+class ChunkOutlineRenderer
+{
+public:
+    void Initialize();
+    void Terminate();
+
+    void Render(const glm::mat4& model_view_proj, glm::vec3 chunk_position);
+
+private:
+    GLuint m_vertex_array_id;
+    GLuint m_vertex_buffer_id;
+
+    Shader m_chunk_outline_shader;
+};
+
+} // namespace nitrocraft::graphics

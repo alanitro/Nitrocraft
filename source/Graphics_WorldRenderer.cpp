@@ -17,27 +17,30 @@
 #include <unordered_map>
 #include <print>
 
-void Graphics_WorldRenderer::Initialize()
+namespace nitrocraft::graphics
+{
+
+void WorldRenderer::Initialize()
 {
     // Load shader program
-    auto vshader_source_opt = IO_ReadFile("resource/shader/Chunk.vert.glsl");
+    auto vshader_source_opt = utility::ReadFile("resource/shader/Chunk.vert.glsl");
     if (vshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/Chunk.vert.glsl.");
         return;
     }
 
-    auto fshader_source_opt = IO_ReadFile("resource/shader/Chunk.frag.glsl");
+    auto fshader_source_opt = utility::ReadFile("resource/shader/Chunk.frag.glsl");
     if (fshader_source_opt.has_value() == false)
     {
         std::println("Error: Failed to load resource/shader/Chunk.frag.glsl.");
         return;
     }
 
-    m_ChunkShader.Create(vshader_source_opt.value(), fshader_source_opt.value());
+    m_chunk_shader.Create(vshader_source_opt.value(), fshader_source_opt.value());
 
     // Load texture atlas
-    auto image_opt = IO_ReadImage("./resource/texture/Blocks.png", true);
+    auto image_opt = utility::ReadImage("./resource/texture/Blocks.png", true);
 
     if (image_opt.has_value() == false)
     {
@@ -47,7 +50,7 @@ void Graphics_WorldRenderer::Initialize()
 
     auto& image = image_opt.value();
 
-    GLint format = (image.ChannelNumbers == 4) ? GL_RGBA : GL_RGB;
+    GLint format = (image.channel_numbers == 4) ? GL_RGBA : GL_RGB;
 
     GLuint texture;
     glGenTextures(1, &texture);
@@ -58,21 +61,21 @@ void Graphics_WorldRenderer::Initialize()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, format, image.Width, image.Height, 0, format, GL_UNSIGNED_BYTE, image.ImageData.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, format, image.width, image.height, 0, format, GL_UNSIGNED_BYTE, image.data.data());
     //glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    m_BlockTextureAtlas = texture;
+    m_block_texture_atlas = texture;
 
     // Start meshing worker threads
-    m_MeshingThreadCount = std::clamp<std::size_t>(std::max(1u, std::thread::hardware_concurrency()) / 2, 1u, 8u);
+    m_meshing_thread_count = std::clamp<std::size_t>(std::max(1u, std::thread::hardware_concurrency()) / 2, 1u, 8u);
 
-    m_MeshingThreads.reserve(m_MeshingThreadCount);
+    m_meshing_threads.reserve(m_meshing_thread_count);
 
-    for (std::size_t i = 0; i < m_MeshingThreadCount; i++)
+    for (std::size_t i = 0; i < m_meshing_thread_count; i++)
     {
-        m_MeshingThreads.emplace_back(
+        m_meshing_threads.emplace_back(
             [this]()
             {
                 this->CPUMeshingWorkLoop();
@@ -81,33 +84,33 @@ void Graphics_WorldRenderer::Initialize()
     }
 }
 
-void Graphics_WorldRenderer::Terminate()
+void WorldRenderer::Terminate()
 {
     {
-        std::lock_guard<std::mutex> lock{ m_MeshingJobMutex };
-        m_MeshingJobRetire = true;
+        std::lock_guard<std::mutex> lock{ m_meshing_job_mutex };
+        m_meshing_job_retire = true;
     }
-    m_MeshingJobCond.notify_all();
+    m_meshing_job_cond.notify_all();
 
-    for (auto& t : m_MeshingThreads)
+    for (auto& t : m_meshing_threads)
     {
         if (t.joinable()) t.join();
     }
-    m_MeshingThreads.clear();
+    m_meshing_threads.clear();
 
-    m_ChunkGPUMeshHandles.clear();
+    m_chunk_gpumesh_handles.clear();
 
-    m_ChunkShader.Destroy();
+    m_chunk_shader.Destroy();
 
-    glDeleteTextures(1, &m_BlockTextureAtlas);
+    glDeleteTextures(1, &m_block_texture_atlas);
 }
 
-void Graphics_WorldRenderer::Render(const Camera& camera, float sunlight_intensity, glm::vec3 sky_color)
+void WorldRenderer::Render(const Camera& camera, float sunlight_intensity, glm::vec3 sky_color)
 {
     // Config pipeline
     glClearColor(sky_color.r, sky_color.g, sky_color.b, 1.0f);
 
-    m_ChunkShader.Use();
+    m_chunk_shader.Use();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -117,49 +120,49 @@ void Graphics_WorldRenderer::Render(const Camera& camera, float sunlight_intensi
     glFrontFace(GL_CCW);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_BlockTextureAtlas);
+    glBindTexture(GL_TEXTURE_2D, m_block_texture_atlas);
 
-    m_ChunkShader.SetUniform("u_Texture", 0);
-    m_ChunkShader.SetUniform("u_ModelViewProjection", camera.GetViewProjection());
-    m_ChunkShader.SetUniform("u_SunlightIntensity", sunlight_intensity);
+    m_chunk_shader.SetUniform("u_Texture", 0);
+    m_chunk_shader.SetUniform("u_ModelViewProjection", camera.GetViewProjection());
+    m_chunk_shader.SetUniform("u_SunlightIntensity", sunlight_intensity);
 
     // Render chunk mesh
-    for (auto& chunk_id : m_GPUMeshIDsToRender)
+    for (auto& chunk_id : m_gpumesh_ids_to_render)
     {
-        auto it = m_ChunkGPUMeshHandles.find(chunk_id);
+        auto it = m_chunk_gpumesh_handles.find(chunk_id);
 
-        if (it == m_ChunkGPUMeshHandles.end()) continue;
+        if (it == m_chunk_gpumesh_handles.end()) continue;
 
         auto& holder = it->second;
 
-        if (!holder.Handle) continue;
+        if (!holder.handle) continue;
 
-        glBindVertexArray(holder.Handle->VertexArrayID);
+        glBindVertexArray(holder.handle->vertex_array_id);
 
-        glDrawElements(GL_TRIANGLES, holder.Handle->IndicesCount, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
+        glDrawElements(GL_TRIANGLES, holder.handle->indices_count, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0));
     }
 
     glBindVertexArray(0);
 
-    m_GPUMeshIDsToRender.clear();
+    m_gpumesh_ids_to_render.clear();
 }
 
-void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk*>& chunks_in_render_area)
+void WorldRenderer::PrepareChunksToRender(const std::vector<world::Chunk*>& chunks_in_render_area)
 {
     // Queue missing chunk cpu mesh
     for (auto chunk : chunks_in_render_area)
     {
-        if (chunk->Stage.load(std::memory_order_acquire) < World_Chunk_Stage::NeighbourLightingComplete) continue;
+        if (chunk->stage.load(std::memory_order_acquire) < world::ChunkStage::NeighbourLightingComplete) continue;
 
-        m_GPUMeshIDsToRender.emplace_back(chunk->ID);
+        m_gpumesh_ids_to_render.emplace_back(chunk->id);
 
-        auto chunk_storage_version = chunk->StorageVersion.load(std::memory_order_acquire);
+        auto chunk_storage_version = chunk->storage_version.load(std::memory_order_acquire);
 
         GPUMeshHandleHolder* holder = nullptr;
 
-        if (auto iter = m_ChunkGPUMeshHandles.find(chunk->ID); iter == m_ChunkGPUMeshHandles.end())
+        if (auto iter = m_chunk_gpumesh_handles.find(chunk->id); iter == m_chunk_gpumesh_handles.end())
         {
-            auto [new_iter, res] = m_ChunkGPUMeshHandles.emplace(chunk->ID, GPUMeshHandleHolder{ std::make_unique<Graphics_ChunkGPUMeshHandle>(), 0, 0});
+            auto [new_iter, res] = m_chunk_gpumesh_handles.emplace(chunk->id, GPUMeshHandleHolder{ std::make_unique<ChunkGPUMeshHandle>(), 0, 0});
             holder = &new_iter->second;
         }
         else
@@ -167,16 +170,16 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
             holder = &iter->second;
         }
 
-        if (holder->UploadedVersion < chunk_storage_version && holder->RequestedVersion < chunk_storage_version)
+        if (holder->uploaded_version < chunk_storage_version && holder->requested_version < chunk_storage_version)
         {
             // Push to mesh gen queue
             {
-                std::lock_guard<std::mutex> lock{ m_MeshingJobMutex };
-                m_MeshingJobQueue.emplace(chunk, chunk_storage_version);
+                std::lock_guard<std::mutex> lock{ m_meshing_job_mutex };
+                m_meshing_job_queue.emplace(chunk, chunk_storage_version);
             }
-            m_MeshingJobCond.notify_one();
+            m_meshing_job_cond.notify_one();
 
-            holder->RequestedVersion = chunk_storage_version;
+            holder->requested_version = chunk_storage_version;
         }
     }
 
@@ -184,74 +187,94 @@ void Graphics_WorldRenderer::PrepareChunksToRender(const std::vector<World_Chunk
     while (true)
     {
         // Get completed cpumesh
-        Graphics_ChunkCPUMesh cpumesh;
+        ChunkCPUMesh cpumesh;
 
         {
-            std::lock_guard<std::mutex> lock{ m_CompletedCPUMeshQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_completed_cpumesh_queue_mutex };
 
-            if (m_CompletedCPUMeshQueue.empty()) break;
+            if (m_completed_cpumesh_queue.empty()) break;
 
-            cpumesh = std::move(m_CompletedCPUMeshQueue.front()); m_CompletedCPUMeshQueue.pop();
+            cpumesh = std::move(m_completed_cpumesh_queue.front()); m_completed_cpumesh_queue.pop();
         }
 
-        if (cpumesh.MeshedChunk->StorageVersion.load(std::memory_order_acquire) > cpumesh.CompletedVersion) continue;
+        if (cpumesh.meshed_chunk->storage_version.load(std::memory_order_acquire) > cpumesh.completed_version) continue;
 
         // Upload finished cpumesh to gpu if its version is > gpu mesh version.
-        auto iter = m_ChunkGPUMeshHandles.find(cpumesh.MeshedChunk->ID);
+        auto iter = m_chunk_gpumesh_handles.find(cpumesh.meshed_chunk->id);
 
-        if (iter == m_ChunkGPUMeshHandles.end()) continue;
+        if (iter == m_chunk_gpumesh_handles.end()) continue;
 
         auto& holder = iter->second;
 
-        if (cpumesh.CompletedVersion != holder.RequestedVersion) continue;
+        if (cpumesh.completed_version != holder.requested_version) continue;
 
-        holder.UploadedVersion = holder.RequestedVersion;
+        holder.uploaded_version = holder.requested_version;
 
-        glBindBuffer(GL_ARRAY_BUFFER, holder.Handle->VertexBufferID);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, holder.Handle->IndexBufferID);
+        glBindBuffer(GL_ARRAY_BUFFER, holder.handle->vertex_buffer_id);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, holder.handle->index_buffer_id);
 
-        glBufferData(GL_ARRAY_BUFFER, cpumesh.Vertices.size() * sizeof(Graphics_ChunkMeshVertexLayout), cpumesh.Vertices.data(), GL_STATIC_DRAW);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, cpumesh.Indices.size() * sizeof(std::uint32_t), cpumesh.Indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, cpumesh.vertices.size() * sizeof(ChunkMeshVertexLayout), cpumesh.vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, cpumesh.indices.size() * sizeof(std::uint32_t), cpumesh.indices.data(), GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-        holder.Handle->IndicesCount = static_cast<std::uint32_t>(cpumesh.Indices.size());
+        holder.handle->indices_count = static_cast<std::uint32_t>(cpumesh.indices.size());
     }
 }
 
-void Graphics_WorldRenderer::CPUMeshingWorkLoop()
+void WorldRenderer::EnableAmbientOcclusion(bool enable)
+{
+    static bool prev_enable = m_enable_ambient_occlusion;
+
+    if (enable != prev_enable)
+    {
+        for (auto& handle : m_chunk_gpumesh_handles)
+        {
+            handle.second.uploaded_version = 0;
+            handle.second.requested_version = 0;
+        }
+    }
+
+    prev_enable = m_enable_ambient_occlusion;
+
+    m_enable_ambient_occlusion = enable;
+}
+
+void WorldRenderer::CPUMeshingWorkLoop()
 {
     while (true)
     {
-        World_Chunk*  chunk = nullptr;
+        world::Chunk*  chunk = nullptr;
         std::uint32_t request_version = 0;
 
         {
-            std::unique_lock<std::mutex> lock{ m_MeshingJobMutex };
+            std::unique_lock<std::mutex> lock{ m_meshing_job_mutex };
 
-            m_MeshingJobCond.wait(lock, [this]() { return m_MeshingJobRetire || !m_MeshingJobQueue.empty(); });
+            m_meshing_job_cond.wait(lock, [this]() { return m_meshing_job_retire || !m_meshing_job_queue.empty(); });
 
-            if (m_MeshingJobRetire) return;
+            if (m_meshing_job_retire) return;
 
-            auto [c,v] = m_MeshingJobQueue.front(); m_MeshingJobQueue.pop();
+            auto [c,v] = m_meshing_job_queue.front(); m_meshing_job_queue.pop();
             chunk = c;
             request_version = v;
         }
 
-        if (request_version < chunk->StorageVersion.load(std::memory_order_acquire)) continue;
+        if (request_version < chunk->storage_version.load(std::memory_order_acquire)) continue;
 
         auto cpumesh =
-            (m_EnableAmbientOcclusion) ?
-            Graphics_Mesh_GenerateChunkCPUMesh_AmbientOcclusion(chunk) :
-            Graphics_Mesh_GenerateChunkCPUMesh(chunk);
+            (m_enable_ambient_occlusion) ?
+            GenerateChunkCPUMesh_AmbientOcclusion(chunk) :
+            GenerateChunkCPUMesh(chunk);
 
-        cpumesh.CompletedVersion = request_version;
+        cpumesh.completed_version = request_version;
 
         {
-            std::lock_guard<std::mutex> lock{ m_CompletedCPUMeshQueueMutex };
+            std::lock_guard<std::mutex> lock{ m_completed_cpumesh_queue_mutex };
 
-            m_CompletedCPUMeshQueue.emplace(std::move(cpumesh));
+            m_completed_cpumesh_queue.emplace(std::move(cpumesh));
         }
     }
 }
+
+} // namespace nitrocraft::graphics
