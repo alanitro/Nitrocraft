@@ -6,6 +6,9 @@ An implementation of a small Minecraft clone using C++ and OpenGL.
 Yet another Minecraft clone in C++ and OpenGL.\
 Built primarily to learn C++ programming, computer graphics, and the internal workings of Minecraft.
 
+## Video
+https://www.youtube.com/watch?v=AqZjD4Ou5iw&list=PLP6cVQ7SmRtoaA7QnMaVvtJ_jWn731s4v
+
 ## Installation
 ```
 git clone --recursive https://github.com/alanitro/Nitrocraft.git
@@ -20,11 +23,11 @@ cmake --build ./build --config [Release|Debug]
 - [x] Spaghetti/Cheese cave generation
 - [x] Flood fill lighting
 - [x] Day/Night cycle
+- [x] Ambient occlusion
 - [ ] Block placement/removal
 - [ ] Basic GUI
 - [ ] Collision detection
 - [ ] Frustum culling
-- [ ] Ambient occlusion
 - [ ] Smooth lighting
 - [ ] Greedy Meshing
 
